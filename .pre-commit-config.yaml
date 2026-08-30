@@ -18,3 +18,9 @@ repos:
         language: system
         pass_filenames: false
         files: '(\.go$|^go\.(mod|sum)$)'
+      - id: go-test
+        name: go test
+        entry: go test ./...
+        language: system
+        pass_filenames: false
+        files: '(\.go$|^go\.(mod|sum)$)'
