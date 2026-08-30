@@ -42,10 +42,10 @@ func (s *HTTPSession) GetBytes(path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrHTTPFailed, err)
 	}
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	if r.StatusCode < 200 || r.StatusCode >= 300 {
-		io.Copy(io.Discard, io.LimitReader(r.Body, maxBodyBytes))
+		_, _ = io.Copy(io.Discard, io.LimitReader(r.Body, maxBodyBytes))
 		return nil, fmt.Errorf("%w: %s", ErrHTTPFailed, r.Status)
 	}
 
