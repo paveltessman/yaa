@@ -28,6 +28,5 @@ go.work.sum
 .env
 .setenv
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# bin
+yaa
