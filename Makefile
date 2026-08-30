@@ -17,6 +17,12 @@ build: ## Build the app
 run: ## Run the app on the host
 	go run .
 
+.PHONY: check-no-lint
+check-no-lint: ## tidy, vet, test, without lint - for CI
+	go mod tidy -diff
+	go vet ./...
+	go tool gotestsum --format dots-v2 --format-hide-empty-pkg -- ./...
+
 .PHONY: check
 check: ## Everything: tidy, vet, test, lint
 	go mod tidy -diff

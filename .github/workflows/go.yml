@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   check:
-    name: vet, test, lint
+    name: make check
     runs-on: ubuntu-latest
 
     steps:
@@ -25,4 +25,9 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
-      - run: make check
+      - run: make check-no-lint
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12
