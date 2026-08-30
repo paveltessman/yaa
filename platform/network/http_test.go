@@ -32,7 +32,7 @@ func TestGetBytesStatus(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, s := newTestSession(t, "", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(key.status)
-				w.Write([]byte("payload"))
+				_, _ = w.Write([]byte("payload"))
 			})
 
 			got, err := s.GetBytes("/path")
@@ -69,7 +69,7 @@ func TestGetBytesBodySize(t *testing.T) {
 	for name, key := range cases {
 		t.Run(name, func(t *testing.T) {
 			_, s := newTestSession(t, "", func(w http.ResponseWriter, r *http.Request) {
-				w.Write(bytes.Repeat([]byte("a"), key.size))
+				_, _ = w.Write(bytes.Repeat([]byte("a"), key.size))
 			})
 
 			got, err := s.GetBytes("data")
@@ -129,7 +129,7 @@ func TestGetBytesTransportFailure(t *testing.T) {
 	t.Run("body ends early", func(t *testing.T) {
 		_, s := newTestSession(t, "", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Length", "5000")
-			w.Write([]byte("short"))
+			_, _ = w.Write([]byte("short"))
 			w.(http.Flusher).Flush()
 			panic(http.ErrAbortHandler)
 		})
