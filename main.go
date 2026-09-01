@@ -3,20 +3,19 @@ package main
 import (
 	"log"
 
-	"github.com/paveltessman/yaa/platform/network"
 	"github.com/paveltessman/yaa/platform/settings"
+	"github.com/paveltessman/yaa/platform/telegram"
 )
 
 func main() {
 	log.Println("Started!")
-	_ = settings.NewSettings()
+	s := settings.NewSettings()
 	log.Println("Settings loaded")
 
-	session := network.NewHTTPSession("https://api.ipify.org")
-
-	ip, err := session.GetBytes("")
+	tgClient := telegram.NewClient(telegram.NewSession(s.TgToken))
+	me, err := tgClient.GetMe()
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("ip: %s", string(ip))
+	log.Println(me)
 }
