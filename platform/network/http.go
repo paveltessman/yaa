@@ -83,11 +83,6 @@ func (s *HTTPSession) do(req *http.Request) ([]byte, error) {
 	}
 	defer func() { _ = r.Body.Close() }()
 
-	if r.StatusCode < 200 || r.StatusCode >= 300 {
-		_, _ = io.Copy(io.Discard, io.LimitReader(r.Body, maxBodyBytes))
-		return nil, fmt.Errorf("%w: %s", ErrHTTPFailed, r.Status)
-	}
-
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodyBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w: %s", ErrHTTPFailed, err, body[:min(len(body), 100)])
@@ -95,6 +90,10 @@ func (s *HTTPSession) do(req *http.Request) ([]byte, error) {
 	if int64(len(body)) > maxBodyBytes {
 		return nil, fmt.Errorf("%w: body is over max limit (%d)", ErrHTTPFailed, maxBodyBytes)
 	}
+	if r.StatusCode < 200 || r.StatusCode >= 300 {
+		return nil, fmt.Errorf("%w: %s: %s", ErrHTTPFailed, r.Status, body)
+	}
+
 	return body, nil
 }
 
