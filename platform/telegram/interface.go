@@ -1,6 +1,11 @@
 package telegram
 
+type SetWebhookParams struct {
+	URL            string   `json:"url"`
+	AllowedUpdates []string `json:"allowed_updates"`
+}
+
 type APIClient interface {
-	SetWebhook(string) error
+	SetWebhook(SetWebhookParams) error
 	DeleteWebhook() error
 }

@@ -105,13 +105,18 @@ func TestGetMeRequest(t *testing.T) {
 
 func TestSetWebhookRequest(t *testing.T) {
 	cases := map[string]struct{ url, wantBody string }{
-		"plain url": {"https://example.com/hook", `{"url":"https://example.com/hook"}`},
+		"plain url": {"https://example.com/hook", `{"url":"https://example.com/hook","allowed_updates":["message"]}`},
 	}
 	for name, key := range cases {
 		t.Run(name, func(t *testing.T) {
 			f, c := newTestClient(t, `{"ok":true}`, nil)
 
-			if err := c.SetWebhook(key.url); err != nil {
+			params := SetWebhookParams{
+				URL:            key.url,
+				AllowedUpdates: []string{"message"},
+			}
+
+			if err := c.SetWebhook(params); err != nil {
 				t.Fatalf("want no error, got %v", err)
 			}
 
@@ -154,7 +159,7 @@ func TestDeleteWebhookRequest(t *testing.T) {
 
 var callers = map[string]func(*Client) error{
 	"GetMe":         func(c *Client) error { _, err := c.GetMe(); return err },
-	"SetWebhook":    func(c *Client) error { return c.SetWebhook("https://example.com/hook") },
+	"SetWebhook":    func(c *Client) error { return c.SetWebhook(SetWebhookParams{URL: "https://example.com/hook"}) },
 	"DeleteWebhook": func(c *Client) error { return c.DeleteWebhook() },
 }
 
