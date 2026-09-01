@@ -8,6 +8,8 @@ import (
 	"github.com/paveltessman/yaa/platform/network"
 )
 
+var _ APIClient = (*Client)(nil)
+
 const apiURL = "https://api.telegram.org/bot"
 
 var ErrTelegramAPIFailed = errors.New("telegram api failed")
