@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/paveltessman/yaa/platform/network"
 )
+
+var _ APIClient = (*Client)(nil)
 
 const apiURL = "https://api.telegram.org/bot"
 
@@ -59,12 +62,9 @@ func (c *Client) GetMe() (*GetMeResponse, error) {
 	return resp, nil
 }
 
-func (c *Client) SetWebhook(url string) error {
+func (c *Client) SetWebhook(params SetWebhookParams) error {
 	const path = "/setWebhook"
-	data := map[string]string{
-		"url": url,
-	}
-	err := c.request(path, &baseResponse{}, data)
+	err := c.request(path, &baseResponse{}, params)
 	return err
 }
 
@@ -74,11 +74,12 @@ func (c *Client) DeleteWebhook() error {
 	return err
 }
 
-func (c *Client) request(path string, respModel oker, data map[string]string) error {
+func (c *Client) request(path string, respModel oker, data any) error {
 	body, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
+	log.Printf("%s", body)
 	r, err := c.http.PostBytes(path, network.ApplicationJson, body)
 	if err != nil {
 		return err

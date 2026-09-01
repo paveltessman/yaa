@@ -11,19 +11,41 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/paveltessman/yaa/platform/settings"
+	"github.com/paveltessman/yaa/platform/telegram"
 )
 
 var errTearUp = errors.New("tear up failed")
 var errTearDown = errors.New("tear down failed")
 
-func noopHook() error { return nil }
+func noopHook(deps Deps) error { return nil }
 
-func failingHook(err error) func() error {
-	return func() error { return err }
+func defaultDeps() Deps {
+	s := settings.Settings{
+		TgToken:    "12345:abcdefg",
+		PublicHost: "http://example.com",
+		ApiAddr:    "127.0.0.1:8080",
+	}
+	deps := Deps{
+		settings: &s,
+		tgClient: &telegram.FakeClient{},
+	}
+	return deps
+
 }
 
-func countingHook(calls *int, err error) func() error {
-	return func() error {
+func withAddr(deps Deps, addr string) Deps {
+	deps.settings.ApiAddr = addr
+	return deps
+}
+
+func failingHook(err error) func(Deps) error {
+	return func(deps Deps) error { return err }
+}
+
+func countingHook(calls *int, err error) func(Deps) error {
+	return func(deps Deps) error {
 		*calls++
 		return err
 	}
@@ -52,15 +74,16 @@ func busyAddr(t *testing.T) string {
 	return listener.Addr().String()
 }
 
-func startServe(t *testing.T, handler http.Handler, tearUp, tearDown func() error) (string, context.CancelFunc, <-chan error) {
+func startServe(t *testing.T, handler http.Handler, deps Deps, tearUp, tearDown lifespan) (string, context.CancelFunc, <-chan error) {
 	t.Helper()
 	addr := freeAddr(t)
+	deps = withAddr(deps, addr)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
 	errs := make(chan error, 1)
 	go func() {
-		errs <- serve(ctx, addr, handler, tearUp, tearDown)
+		errs <- serve(ctx, deps, handler, tearUp, tearDown)
 	}()
 	return addr, cancel, errs
 }
@@ -92,7 +115,7 @@ func waitResult(t *testing.T, errs <-chan error) error {
 
 func TestServeCleanShutdownReturnsNil(t *testing.T) {
 	tearDownCalls := 0
-	addr, cancel, errs := startServe(t, NewRouter(), noopHook, countingHook(&tearDownCalls, nil))
+	addr, cancel, errs := startServe(t, NewRouter(), defaultDeps(), noopHook, countingHook(&tearDownCalls, nil))
 	waitForServer(t, addr)
 
 	cancel()
@@ -106,7 +129,7 @@ func TestServeCleanShutdownReturnsNil(t *testing.T) {
 }
 
 func TestServeRoutesRequests(t *testing.T) {
-	addr, cancel, errs := startServe(t, NewRouter(), noopHook, noopHook)
+	addr, cancel, errs := startServe(t, NewRouter(), defaultDeps(), noopHook, noopHook)
 	waitForServer(t, addr)
 
 	resp, err := http.Post("http://"+addr+"/v1/callbacks/telegram", "application/json", strings.NewReader(`{"update_id":1}`))
@@ -136,7 +159,7 @@ func TestServeWaitsForInFlightRequest(t *testing.T) {
 		_, _ = w.Write([]byte("done"))
 	})
 
-	addr, cancel, errs := startServe(t, handler, noopHook, noopHook)
+	addr, cancel, errs := startServe(t, handler, defaultDeps(), noopHook, noopHook)
 	waitForServer(t, addr)
 
 	bodies := make(chan string, 1)
@@ -177,7 +200,8 @@ func TestServeWaitsForInFlightRequest(t *testing.T) {
 func TestServeListenErrorSurfaces(t *testing.T) {
 	tearDownCalls := 0
 
-	err := serve(context.Background(), busyAddr(t), NewRouter(), noopHook, countingHook(&tearDownCalls, nil))
+	deps := withAddr(defaultDeps(), busyAddr(t))
+	err := serve(context.Background(), deps, NewRouter(), noopHook, countingHook(&tearDownCalls, nil))
 
 	if err == nil {
 		t.Error("want a listen error on a busy address, got nil")
@@ -190,7 +214,8 @@ func TestServeListenErrorSurfaces(t *testing.T) {
 func TestServeTearUpErrorStopsTheServer(t *testing.T) {
 	tearDownCalls := 0
 
-	err := serve(context.Background(), freeAddr(t), NewRouter(), failingHook(errTearUp), countingHook(&tearDownCalls, nil))
+	deps := withAddr(defaultDeps(), freeAddr(t))
+	err := serve(context.Background(), deps, NewRouter(), failingHook(errTearUp), countingHook(&tearDownCalls, nil))
 
 	if !errors.Is(err, errTearUp) {
 		t.Errorf("want errTearUp, got %v", err)
@@ -201,7 +226,7 @@ func TestServeTearUpErrorStopsTheServer(t *testing.T) {
 }
 
 func TestServeTearDownErrorSurfacesAfterACleanRun(t *testing.T) {
-	addr, cancel, errs := startServe(t, NewRouter(), noopHook, failingHook(errTearDown))
+	addr, cancel, errs := startServe(t, NewRouter(), defaultDeps(), noopHook, failingHook(errTearDown))
 	waitForServer(t, addr)
 
 	cancel()
@@ -212,7 +237,8 @@ func TestServeTearDownErrorSurfacesAfterACleanRun(t *testing.T) {
 }
 
 func TestServeTearDownErrorKeepsTheFirstError(t *testing.T) {
-	err := serve(context.Background(), busyAddr(t), NewRouter(), noopHook, failingHook(errTearDown))
+	deps := withAddr(defaultDeps(), busyAddr(t))
+	err := serve(context.Background(), deps, NewRouter(), noopHook, failingHook(errTearDown))
 
 	if err == nil {
 		t.Fatal("want the listen error, got nil")

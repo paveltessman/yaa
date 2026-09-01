@@ -1,12 +1,16 @@
 package settings
 
-import "os"
+import (
+	"net/url"
+	"os"
+)
 
 const defaultApiAddr = "127.0.0.1:8080"
 
 type Settings struct {
-	TgToken string
-	ApiAddr string
+	TgToken    string
+	PublicHost string
+	ApiAddr    string
 }
 
 func NewSettings() Settings {
@@ -21,9 +25,15 @@ func NewSettings() Settings {
 		ApiAddr = defaultApiAddr
 	}
 
+	PublicHost := os.Getenv("PUBLIC_HTTP_HOST")
+	if _, err := url.Parse(PublicHost); err != nil {
+		panic(err)
+	}
+
 	settings := Settings{
-		TgToken: TgToken,
-		ApiAddr: ApiAddr,
+		TgToken:    TgToken,
+		PublicHost: PublicHost,
+		ApiAddr:    ApiAddr,
 	}
 	return settings
 }
