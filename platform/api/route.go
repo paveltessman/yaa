@@ -37,10 +37,10 @@ func tearDown() error {
 	return nil
 }
 
-func Serve(ctx context.Context, addr string) error {
+func Serve(ctx context.Context, deps Deps) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return serve(ctx, addr, NewRouter(), tearUp, tearDown)
+	return serve(ctx, deps.settings.ApiAddr, NewRouter(), tearUp, tearDown)
 }
 
 func serve(ctx context.Context, addr string, handler http.Handler, tearUp, tearDown func() error) (err error) {

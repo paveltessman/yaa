@@ -10,7 +10,6 @@ import (
 )
 
 func main() {
-	log.Println("Started!")
 	s := settings.NewSettings()
 	log.Println("Settings loaded")
 
@@ -21,7 +20,9 @@ func main() {
 	}
 	log.Println(me)
 
-	if err := api.Serve(context.Background(), s.ApiAddr); err != nil {
+	deps := api.NewDeps(&s, tgClient)
+
+	if err := api.Serve(context.Background(), deps); err != nil {
 		panic(err)
 	}
 }
