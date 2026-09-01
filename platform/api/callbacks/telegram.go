@@ -8,6 +8,8 @@ import (
 
 const maxBodyBytes = 1 << 20
 
+const TgWebhookPath = "/v1/callbacks/telegram"
+
 func Telegram() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

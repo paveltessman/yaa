@@ -23,32 +23,22 @@ const idleTimeout = 60 * time.Second
 func NewRouter() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.Handle("/v1/callbacks/telegram", callbacks.Telegram())
+	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram())
 	return mux
-}
-
-func tearUp() error {
-	log.Println("Tear up done!")
-	return nil
-}
-
-func tearDown() error {
-	log.Println("Tear down done!")
-	return nil
 }
 
 func Serve(ctx context.Context, deps Deps) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return serve(ctx, deps.settings.ApiAddr, NewRouter(), tearUp, tearDown)
+	return serve(ctx, deps, NewRouter(), tearUp, tearDown)
 }
 
-func serve(ctx context.Context, addr string, handler http.Handler, tearUp, tearDown func() error) (err error) {
-	if err := tearUp(); err != nil {
+func serve(ctx context.Context, deps Deps, handler http.Handler, tearUp, tearDown lifespan) (err error) {
+	if err := tearUp(deps); err != nil {
 		return err
 	}
 	defer func() {
-		if tearDownErr := tearDown(); tearDownErr != nil {
+		if tearDownErr := tearDown(deps); tearDownErr != nil {
 			log.Printf("tear down failed: %v", tearDownErr)
 			if err == nil {
 				err = tearDownErr
@@ -56,7 +46,7 @@ func serve(ctx context.Context, addr string, handler http.Handler, tearUp, tearD
 		}
 	}()
 
-	listener, err := net.Listen("tcp", addr)
+	listener, err := net.Listen("tcp", deps.settings.ApiAddr)
 	if err != nil {
 		return err
 	}
