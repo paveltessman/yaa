@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 
+	"github.com/paveltessman/yaa/platform/api"
 	"github.com/paveltessman/yaa/platform/settings"
 	"github.com/paveltessman/yaa/platform/telegram"
 )
@@ -18,4 +20,8 @@ func main() {
 		panic(err)
 	}
 	log.Println(me)
+
+	if err := api.Serve(context.Background(), s.ApiAddr); err != nil {
+		panic(err)
+	}
 }
