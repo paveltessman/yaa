@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,12 @@ import (
 	"strings"
 	"time"
 )
+
+const (
+	ApplicationJson ContentType = "application/json"
+)
+
+var _ HTTPRequester = (*HTTPSession)(nil)
 
 const defaultTimeout = 10 * time.Second
 const maxBodyBytes = 1024 * 1024 // 1 MB
@@ -32,13 +39,45 @@ func NewHTTPSession(baseURL string) *HTTPSession {
 }
 
 func (s *HTTPSession) GetBytes(path string) ([]byte, error) {
+	req, err := s.newRequest(http.MethodGet, path, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	return s.do(req)
+}
+
+func (s *HTTPSession) PostBytes(path string, contentType ContentType, body []byte) ([]byte, error) {
+	req, err := s.newRequest(http.MethodPost, path, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	return s.do(req)
+}
+
+func (s *HTTPSession) newRequest(method, path string, contentType ContentType, body []byte) (*http.Request, error) {
 	path = preparePath(path)
 	u, err := url.JoinPath(s.baseURL, path)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := s.client.Get(u)
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequest(method, u, reader)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrHTTPFailed, err)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", string(contentType))
+	}
+	return req, nil
+}
+
+func (s *HTTPSession) do(req *http.Request) ([]byte, error) {
+	r, err := s.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrHTTPFailed, err)
 	}
