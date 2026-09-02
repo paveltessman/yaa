@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	pipelines "github.com/paveltessman/yaa/pipelines/shared"
+	"github.com/paveltessman/yaa/pipelines/telegram/updates"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
 )
 
@@ -23,7 +25,7 @@ const idleTimeout = 60 * time.Second
 func NewRouter() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram())
+	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram(pipelines.Run, updates.NewChain()))
 	return mux
 }
 
