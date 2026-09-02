@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 type command struct {
@@ -20,23 +24,31 @@ func commands() []command {
 }
 
 func main() {
-	if len(os.Args[1:]) != 1 {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := do(ctx, os.Args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "fatal: %v", err)
+		os.Exit(1)
+	}
+}
+
+func do(ctx context.Context, args []string) error {
+	if len(args) != 1 {
 		usage()
+		return errors.New("no subcommand given")
 	}
 
 	for _, c := range commands() {
-		if c.name != os.Args[1] {
+		if c.name != args[0] {
 			continue
 		}
 
-		err := c.callback(context.Background())
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		os.Exit(0)
+		return c.callback(ctx)
 	}
 	usage()
+	return fmt.Errorf("unknown subcommand: %s", args[0])
 }
 
 func usage() {
@@ -46,5 +58,4 @@ func usage() {
 	for _, c := range commands() {
 		fmt.Fprintf(os.Stderr, "\t%s: %s\n", c.name, c.description)
 	}
-	os.Exit(1)
 }
