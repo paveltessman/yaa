@@ -9,12 +9,20 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/paveltessman/yaa/pipelines/shared"
+	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
 )
 
 func quietLog(t *testing.T) {
 	t.Helper()
 	log.SetOutput(io.Discard)
 	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+}
+
+func handler() http.Handler {
+	h := Telegram(shared.Run, []shared.Handler[*session.Session]{})
+	return h
 }
 
 func TestTelegramMethod(t *testing.T) {
@@ -33,7 +41,7 @@ func TestTelegramMethod(t *testing.T) {
 			req := httptest.NewRequest(key.method, "/v1/callbacks/telegram", strings.NewReader(`{"update_id":1}`))
 			rec := httptest.NewRecorder()
 
-			Telegram().ServeHTTP(rec, req)
+			handler().ServeHTTP(rec, req)
 
 			if rec.Code != key.want {
 				t.Errorf("want=%d, got=%d", key.want, rec.Code)
@@ -65,7 +73,7 @@ func TestTelegramBodySize(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/v1/callbacks/telegram", body)
 			rec := httptest.NewRecorder()
 
-			Telegram().ServeHTTP(rec, req)
+			handler().ServeHTTP(rec, req)
 
 			if rec.Code != key.want {
 				t.Errorf("want=%d, got=%d", key.want, rec.Code)
@@ -83,7 +91,7 @@ func TestTelegramReadErrorGivesBadRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/v1/callbacks/telegram", errReader{})
 	rec := httptest.NewRecorder()
 
-	Telegram().ServeHTTP(rec, req)
+	handler().ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("want=%d, got=%d", http.StatusBadRequest, rec.Code)
