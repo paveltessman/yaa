@@ -159,3 +159,15 @@ func TestParseUpdateSatisfiesHandler(t *testing.T) {
 		t.Error("want an update, got nil")
 	}
 }
+
+func TestParseUpdateAddsMessageToSession(t *testing.T) {
+	raw := `{"message":{"message_id":10,"date":1700000000}}`
+	s := newSession(raw)
+
+	if err := ParseUpdate(context.Background(), s); err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+	if s.Message == nil {
+		t.Errorf("message is not set")
+	}
+}

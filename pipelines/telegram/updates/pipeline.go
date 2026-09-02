@@ -16,8 +16,12 @@ func NewSession(update []byte) *session.Session {
 }
 
 func NewChain() []shared.Handler[*session.Session] {
+	parseUpdate := shared.HandlerFunc[*session.Session](handlers.ParseUpdate)
+	storeMessage := handlers.StoreMessage{}
+
 	chain := []shared.Handler[*session.Session]{
-		shared.HandlerFunc[*session.Session](handlers.ParseUpdate),
+		parseUpdate,
+		storeMessage,
 	}
 	return chain
 }

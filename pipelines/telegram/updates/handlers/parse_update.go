@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
 	"github.com/paveltessman/yaa/platform/telegram"
 )
@@ -29,6 +30,7 @@ func ParseUpdate(ctx context.Context, session *session.Session) error {
 		return nil
 	}
 	session.Update = &update
+	session.Message = models.FromTgMessage(update.Message)
 	log.Println(update.Message)
 	return nil
 }
