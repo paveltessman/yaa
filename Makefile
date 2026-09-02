@@ -11,11 +11,11 @@ help: ## List available targets
 
 .PHONY: build
 build: ## Build the app
-	go build -o $(BIN)/yaa .
+	go build -o $(BIN)/yaa ./cmd/
 
 .PHONY: run
 run: ## Run the app on the host
-	go run .
+	go run ./cmd run
 
 .PHONY: check-no-lint
 check-no-lint: ## tidy, vet, test, without lint - for CI

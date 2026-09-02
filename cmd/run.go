@@ -9,20 +9,20 @@ import (
 	"github.com/paveltessman/yaa/platform/telegram"
 )
 
-func main() {
+func run(ctx context.Context) error {
 	s := settings.NewSettings()
 	log.Println("Settings loaded")
 
 	tgClient := telegram.NewClient(telegram.NewSession(s.TgToken))
-	me, err := tgClient.GetMe()
+	_, err := tgClient.GetMe()
 	if err != nil {
-		panic(err)
+		return err
 	}
-	log.Println(me)
 
 	deps := api.NewDeps(&s, tgClient)
 
-	if err := api.Serve(context.Background(), deps); err != nil {
-		panic(err)
+	if err := api.Serve(ctx, deps); err != nil {
+		return err
 	}
+	return nil
 }
