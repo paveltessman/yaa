@@ -6,9 +6,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	pipelines "github.com/paveltessman/yaa/pipelines/shared"
@@ -30,8 +27,6 @@ func NewRouter() http.Handler {
 }
 
 func Serve(ctx context.Context, deps Deps) error {
-	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	return serve(ctx, deps, NewRouter(), tearUp, tearDown)
 }
 

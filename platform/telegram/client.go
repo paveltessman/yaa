@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/paveltessman/yaa/platform/network"
 )
@@ -79,7 +78,6 @@ func (c *Client) request(path string, respModel oker, data any) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("%s", body)
 	r, err := c.http.PostBytes(path, network.ApplicationJson, body)
 	if err != nil {
 		return err
