@@ -17,6 +17,25 @@ jobs:
     name: make check
     runs-on: ubuntu-latest
 
+    # The migrations can only be checked against a real server.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: yaa
+          POSTGRES_PASSWORD: yaa
+          POSTGRES_DB: yaa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U yaa -d yaa"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      TEST_DATABASE_URL: postgres://yaa:yaa@localhost:5432/yaa?sslmode=disable
+
     steps:
       - uses: actions/checkout@v5
 
