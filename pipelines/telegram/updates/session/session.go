@@ -13,4 +13,5 @@ type Session struct {
 	RawUpdate []byte
 	Update    *telegram.Update
 	Message   *models.Message
+	Thread    []*models.Message
 }

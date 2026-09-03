@@ -19,10 +19,12 @@ func NewSession(update []byte) *session.Session {
 func NewChain(repo models.DBRepo) []shared.Handler[*session.Session] {
 	parseUpdate := shared.HandlerFunc[*session.Session](handlers.ParseUpdate)
 	storeMessage := handlers.NewStoreMessage(repo)
+	loadThread := handlers.NewLoadThread(repo)
 
 	chain := []shared.Handler[*session.Session]{
 		parseUpdate,
 		storeMessage,
+		loadThread,
 	}
 	return chain
 }
