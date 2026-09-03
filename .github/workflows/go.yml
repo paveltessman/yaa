@@ -46,6 +46,7 @@ jobs:
 
       - run: make check-no-lint
 
+      # The lint depends on `make generate`, which is run in the step above.
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:

@@ -23,4 +23,4 @@ repos:
         entry: make check
         language: system
         pass_filenames: false
-        files: '(\.go$|^go\.(mod|sum)$)'
+        files: '(\.go$|\.sql$|^go\.(mod|sum)$|^sqlc\.yaml$)'

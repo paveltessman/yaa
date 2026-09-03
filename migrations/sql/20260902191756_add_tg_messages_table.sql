@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS tg_message (
     user_id bigint NOT NULL,
     type text NOT NULL CHECK (type IN ('from_user', 'to_user')),
     date timestamptz NOT NULL,
-    text text
+    text text NOT NULL DEFAULT '',
+    UNIQUE (chat_id, message_id)
 );
 
 -- +goose Down

@@ -31,3 +31,6 @@ go.work.sum
 
 # bin
 yaa
+
+# Generated: `make generate` recreates these from the schema and the queries.
+*_sqlc.go
