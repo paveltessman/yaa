@@ -29,3 +29,22 @@ check: ## Everything: tidy, vet, test, lint
 	go vet ./...
 	go tool gotestsum --format dots-v2 --format-hide-empty-pkg -- ./...
 	golangci-lint run
+
+## ---------------------------------------------------------------- docker
+
+.env:
+	@cp .env.example .env
+	@echo ">> wrote .env from .env.example — fill in TG_TOKEN and PUBLIC_HTTP_HOST"
+
+.PHONY: up
+up: .env ## Run the app in docker
+	docker compose up --build -d
+	@echo ">> http://localhost:$$(grep -E '^HTTP_PORT=' .env | cut -d= -f2)"
+
+.PHONY: down
+down: ## Stop the docker stack
+	docker compose down
+
+.PHONY: logs
+logs: ## Follow the app logs
+	docker compose logs -f app
