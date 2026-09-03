@@ -17,6 +17,11 @@ build: ## Build the app
 run: ## Run the app on the host
 	go run ./cmd run
 
+.PHONY: dev
+dev: ## Migrate, then run the app (used inside the dev container)
+	go run ./cmd migrate up
+	go run ./cmd run
+
 .PHONY: check-no-lint
 check-no-lint: ## tidy, vet, test, without lint - for CI
 	go mod tidy -diff
@@ -29,6 +34,29 @@ check: ## Everything: tidy, vet, test, lint
 	go vet ./...
 	go tool gotestsum --format dots-v2 --format-hide-empty-pkg -- ./...
 	golangci-lint run
+
+## ---------------------------------------------------------------- database
+
+.PHONY: migrate
+migrate: ## Apply pending database migrations
+	go run ./cmd migrate up
+
+.PHONY: migrate-down
+migrate-down: ## Roll back the most recent migration
+	go run ./cmd migrate down
+
+.PHONY: migrate-status
+migrate-status: ## Show which migrations are applied
+	go run ./cmd migrate status
+
+.PHONY: migration
+migration: ## Scaffold a migration: make migration name=add_reminders
+	@test -n "$(name)" || { echo "usage: make migration name=add_reminders" >&2; exit 1; }
+	go tool goose -dir migrations/sql create $(name) sql
+
+.PHONY: psql
+psql: ## Open a psql shell on the dev database
+	docker compose exec db sh -c 'exec psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
 
 ## ---------------------------------------------------------------- docker
 

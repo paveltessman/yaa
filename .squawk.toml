@@ -1,0 +1,5 @@
+excluded_rules = [
+    "ban-drop-table",
+    "require-lock-timeout",
+    "require-statement-timeout",
+]

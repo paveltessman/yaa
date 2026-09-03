@@ -9,7 +9,7 @@ import (
 	"github.com/paveltessman/yaa/platform/telegram"
 )
 
-func run(ctx context.Context) error {
+func run(ctx context.Context, _ []string) error {
 	s := settings.NewSettings()
 	log.Println("Settings loaded")
 
