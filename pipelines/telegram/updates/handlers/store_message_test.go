@@ -32,7 +32,7 @@ func newSessionWithMessage(message *models.Message) *session.Session {
 
 func TestStoreMessageStoresSessionMessage(t *testing.T) {
 	repo := models.FakeDBRepo{}
-	h := StoreMessage{repo: &repo}
+	h := NewStoreMessage(&repo)
 	message := newMessage()
 	s := newSessionWithMessage(message)
 
@@ -52,7 +52,7 @@ func TestStoreMessageStoresSessionMessage(t *testing.T) {
 
 func TestStoreMessageKeepsMessageOnSession(t *testing.T) {
 	repo := models.FakeDBRepo{}
-	h := StoreMessage{repo: &repo}
+	h := NewStoreMessage(&repo)
 	message := newMessage()
 	s := newSessionWithMessage(message)
 
@@ -67,7 +67,7 @@ func TestStoreMessageKeepsMessageOnSession(t *testing.T) {
 func TestStoreMessagePassesContext(t *testing.T) {
 	type key struct{}
 	repo := models.FakeDBRepo{}
-	h := StoreMessage{repo: &repo}
+	h := NewStoreMessage(&repo)
 	s := newSessionWithMessage(newMessage())
 	ctx := context.WithValue(context.Background(), key{}, "marker")
 
@@ -84,7 +84,7 @@ func TestStoreMessagePassesContext(t *testing.T) {
 
 func TestStoreMessageRejectsSessionWithoutMessage(t *testing.T) {
 	repo := models.FakeDBRepo{}
-	h := StoreMessage{repo: &repo}
+	h := NewStoreMessage(&repo)
 	s := newSessionWithMessage(nil)
 
 	err := h.Handle(context.Background(), s)
@@ -103,7 +103,7 @@ func TestStoreMessageRejectsSessionWithoutMessage(t *testing.T) {
 func TestStoreMessageWrapsRepoError(t *testing.T) {
 	repoErr := errors.New("connection refused")
 	repo := models.FakeDBRepo{Error: repoErr}
-	h := StoreMessage{repo: &repo}
+	h := NewStoreMessage(&repo)
 	s := newSessionWithMessage(newMessage())
 
 	err := h.Handle(context.Background(), s)
@@ -119,9 +119,19 @@ func TestStoreMessageWrapsRepoError(t *testing.T) {
 	}
 }
 
+func TestNewStoreMessageRejectsANilRepo(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("want a panic on a nil repo, got none")
+		}
+	}()
+
+	NewStoreMessage(nil)
+}
+
 func TestStoreMessageSatisfiesHandler(t *testing.T) {
 	repo := models.FakeDBRepo{}
-	var h shared.Handler[*session.Session] = StoreMessage{repo: &repo}
+	var h shared.Handler[*session.Session] = NewStoreMessage(&repo)
 	s := newSessionWithMessage(newMessage())
 
 	if err := h.Handle(context.Background(), s); err != nil {

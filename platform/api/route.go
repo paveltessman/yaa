@@ -19,15 +19,16 @@ const readTimeout = 15 * time.Second
 const writeTimeout = 15 * time.Second
 const idleTimeout = 60 * time.Second
 
-func NewRouter() http.Handler {
+func NewRouter(deps Deps) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram(pipelines.Run, updates.NewChain()))
+	chain := updates.NewChain(deps.dbRepo)
+	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram(pipelines.Run, chain))
 	return mux
 }
 
 func Serve(ctx context.Context, deps Deps) error {
-	return serve(ctx, deps, NewRouter(), tearUp, tearDown)
+	return serve(ctx, deps, NewRouter(deps), tearUp, tearDown)
 }
 
 func serve(ctx context.Context, deps Deps, handler http.Handler, tearUp, tearDown lifespan) (err error) {
