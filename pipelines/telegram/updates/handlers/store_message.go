@@ -15,6 +15,15 @@ type StoreMessage struct {
 	repo models.DBRepo
 }
 
+func NewStoreMessage(repo models.DBRepo) StoreMessage {
+	if repo == nil {
+		panic("db repo object is nil")
+	}
+
+	h := StoreMessage{repo: repo}
+	return h
+}
+
 func (h StoreMessage) Handle(ctx context.Context, session *session.Session) error {
 	message := session.Message
 	if message == nil {

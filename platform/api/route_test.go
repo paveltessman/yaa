@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
+	"github.com/paveltessman/yaa/platform/api/callbacks"
 	"github.com/paveltessman/yaa/platform/settings"
 	"github.com/paveltessman/yaa/platform/telegram"
 )
@@ -30,6 +32,7 @@ func defaultDeps() Deps {
 	deps := Deps{
 		settings: &s,
 		tgClient: &telegram.FakeClient{},
+		dbRepo:   &models.FakeDBRepo{},
 	}
 	return deps
 
@@ -115,7 +118,8 @@ func waitResult(t *testing.T, errs <-chan error) error {
 
 func TestServeCleanShutdownReturnsNil(t *testing.T) {
 	tearDownCalls := 0
-	addr, cancel, errs := startServe(t, NewRouter(), defaultDeps(), noopHook, countingHook(&tearDownCalls, nil))
+	deps := defaultDeps()
+	addr, cancel, errs := startServe(t, NewRouter(deps), deps, noopHook, countingHook(&tearDownCalls, nil))
 	waitForServer(t, addr)
 
 	cancel()
@@ -129,7 +133,8 @@ func TestServeCleanShutdownReturnsNil(t *testing.T) {
 }
 
 func TestServeRoutesRequests(t *testing.T) {
-	addr, cancel, errs := startServe(t, NewRouter(), defaultDeps(), noopHook, noopHook)
+	deps := defaultDeps()
+	addr, cancel, errs := startServe(t, NewRouter(deps), deps, noopHook, noopHook)
 	waitForServer(t, addr)
 
 	resp, err := http.Post("http://"+addr+"/v1/callbacks/telegram", "application/json", strings.NewReader(`{"update_id":1}`))
@@ -201,7 +206,7 @@ func TestServeListenErrorSurfaces(t *testing.T) {
 	tearDownCalls := 0
 
 	deps := withAddr(defaultDeps(), busyAddr(t))
-	err := serve(context.Background(), deps, NewRouter(), noopHook, countingHook(&tearDownCalls, nil))
+	err := serve(context.Background(), deps, NewRouter(deps), noopHook, countingHook(&tearDownCalls, nil))
 
 	if err == nil {
 		t.Error("want a listen error on a busy address, got nil")
@@ -215,7 +220,7 @@ func TestServeTearUpErrorStopsTheServer(t *testing.T) {
 	tearDownCalls := 0
 
 	deps := withAddr(defaultDeps(), freeAddr(t))
-	err := serve(context.Background(), deps, NewRouter(), failingHook(errTearUp), countingHook(&tearDownCalls, nil))
+	err := serve(context.Background(), deps, NewRouter(deps), failingHook(errTearUp), countingHook(&tearDownCalls, nil))
 
 	if !errors.Is(err, errTearUp) {
 		t.Errorf("want errTearUp, got %v", err)
@@ -226,7 +231,8 @@ func TestServeTearUpErrorStopsTheServer(t *testing.T) {
 }
 
 func TestServeTearDownErrorSurfacesAfterACleanRun(t *testing.T) {
-	addr, cancel, errs := startServe(t, NewRouter(), defaultDeps(), noopHook, failingHook(errTearDown))
+	deps := defaultDeps()
+	addr, cancel, errs := startServe(t, NewRouter(deps), deps, noopHook, failingHook(errTearDown))
 	waitForServer(t, addr)
 
 	cancel()
@@ -238,7 +244,7 @@ func TestServeTearDownErrorSurfacesAfterACleanRun(t *testing.T) {
 
 func TestServeTearDownErrorKeepsTheFirstError(t *testing.T) {
 	deps := withAddr(defaultDeps(), busyAddr(t))
-	err := serve(context.Background(), deps, NewRouter(), noopHook, failingHook(errTearDown))
+	err := serve(context.Background(), deps, NewRouter(deps), noopHook, failingHook(errTearDown))
 
 	if err == nil {
 		t.Fatal("want the listen error, got nil")
@@ -268,6 +274,29 @@ func TestIgnoreServerClosed(t *testing.T) {
 	}
 }
 
+func TestNewRouterRunsTheChain(t *testing.T) {
+	repo := models.FakeDBRepo{}
+	deps := defaultDeps()
+	deps.dbRepo = &repo
+	body := `{"update_id":1,"message":{"message_id":10,"message_thread_id":20,
+	  "from":{"id":30},"chat":{"id":40},"text":"hello","date":1700000000}}`
+
+	req := httptest.NewRequest(http.MethodPost, callbacks.TgWebhookPath, strings.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	NewRouter(deps).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("want=%d, got=%d", http.StatusOK, rec.Code)
+	}
+	if len(repo.Messages) != 1 {
+		t.Fatalf("want 1 stored message, got %d", len(repo.Messages))
+	}
+	if got := repo.Messages[0]; got.ID != 10 || got.ChatID != 40 || got.Text != "hello" {
+		t.Errorf("want the message from the update, got %+v", got)
+	}
+}
+
 func TestNewRouterRoutes(t *testing.T) {
 	cases := map[string]struct {
 		method string
@@ -284,7 +313,7 @@ func TestNewRouterRoutes(t *testing.T) {
 			req := httptest.NewRequest(key.method, key.path, strings.NewReader("{}"))
 			rec := httptest.NewRecorder()
 
-			NewRouter().ServeHTTP(rec, req)
+			NewRouter(defaultDeps()).ServeHTTP(rec, req)
 
 			if rec.Code != key.want {
 				t.Errorf("want=%d, got=%d", key.want, rec.Code)

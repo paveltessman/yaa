@@ -3,6 +3,7 @@ package updates
 import (
 	"github.com/paveltessman/yaa/pipelines/shared"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/handlers"
+	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
 )
 
@@ -15,9 +16,9 @@ func NewSession(update []byte) *session.Session {
 
 }
 
-func NewChain() []shared.Handler[*session.Session] {
+func NewChain(repo models.DBRepo) []shared.Handler[*session.Session] {
 	parseUpdate := shared.HandlerFunc[*session.Session](handlers.ParseUpdate)
-	storeMessage := handlers.StoreMessage{}
+	storeMessage := handlers.NewStoreMessage(repo)
 
 	chain := []shared.Handler[*session.Session]{
 		parseUpdate,
