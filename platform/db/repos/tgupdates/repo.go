@@ -43,3 +43,34 @@ func (r *Repo) StoreMessage(ctx context.Context, message *models.Message) error 
 	}
 	return nil
 }
+
+func (r *Repo) LoadThread(ctx context.Context, chatID, threadID int64) ([]*models.Message, error) {
+	params := sqlc.LoadTgThreadParams{
+		ChatID:   chatID,
+		ThreadID: threadID,
+	}
+
+	rows, err := r.queries.LoadTgThread(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("tgupdates: can't load thread %d of chat %d: %w", threadID, chatID, err)
+	}
+
+	messages := make([]*models.Message, 0, len(rows))
+	for _, row := range rows {
+		messages = append(messages, toMessage(row))
+	}
+	return messages, nil
+}
+
+func toMessage(row sqlc.TgMessage) *models.Message {
+	message := models.Message{
+		ID:       row.MessageID,
+		ChatID:   row.ChatID,
+		ThreadID: row.ThreadID,
+		UserID:   row.UserID,
+		Type:     models.MessageType(row.Type),
+		Date:     row.Date,
+		Text:     row.Text,
+	}
+	return &message
+}
