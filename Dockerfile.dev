@@ -1,0 +1,15 @@
+# Development image.
+
+FROM golang:1.27-alpine
+
+RUN apk add --no-cache make git bash
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+ENV GOFLAGS=-buildvcs=false
+
+EXPOSE 8080
+CMD ["make", "run"]
