@@ -17,7 +17,7 @@ const TgWebhookPath = "/v1/callbacks/telegram"
 
 func Telegram(
 	runner pipelines.Runner[*session.Session],
-	chain []pipelines.Handler[*session.Session],
+	chain pipelines.Chain[*session.Session],
 ) http.Handler {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

@@ -1,6 +1,8 @@
 package updates
 
 import (
+	"context"
+
 	"github.com/paveltessman/yaa/pipelines/shared"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/handlers"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
@@ -16,7 +18,11 @@ func NewSession(update []byte) *session.Session {
 
 }
 
-func NewChain(repo models.DBRepo, agentRunner handlers.AgentRunner) []shared.Handler[*session.Session] {
+func errorHandler(ctx context.Context, session *session.Session, err error) error {
+	return err
+}
+
+func NewChain(repo models.DBRepo, agentRunner handlers.AgentRunner) shared.Chain[*session.Session] {
 	parseUpdate := shared.HandlerFunc[*session.Session](handlers.ParseUpdate)
 	storeMessage := handlers.NewStoreMessage(repo)
 	loadThread := handlers.NewLoadThread(repo)
@@ -28,5 +34,5 @@ func NewChain(repo models.DBRepo, agentRunner handlers.AgentRunner) []shared.Han
 		loadThread,
 		runAgent,
 	}
-	return chain
+	return shared.NewChain(chain, errorHandler)
 }
