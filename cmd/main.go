@@ -13,12 +13,13 @@ import (
 type command struct {
 	name        string
 	description string
-	callback    func(context.Context) error
+	callback    func(context.Context, []string) error
 }
 
 func commands() []command {
 	commands := []command{
 		{"run", "Run the thing", run},
+		{"migrate", "Apply or roll back database migrations (up|down|status|version)", migrate},
 	}
 	return commands
 }
@@ -35,7 +36,7 @@ func main() {
 }
 
 func do(ctx context.Context, args []string) error {
-	if len(args) != 1 {
+	if len(args) == 0 {
 		usage()
 		return errors.New("no subcommand given")
 	}
@@ -45,14 +46,14 @@ func do(ctx context.Context, args []string) error {
 			continue
 		}
 
-		return c.callback(ctx)
+		return c.callback(ctx, args[1:])
 	}
 	usage()
 	return fmt.Errorf("unknown subcommand: %s", args[0])
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "Usage: yaa <command>")
+	fmt.Fprintln(os.Stderr, "Usage: yaa <command> [args]")
 	fmt.Fprintln(os.Stderr, "\ncommands:")
 
 	for _, c := range commands() {
