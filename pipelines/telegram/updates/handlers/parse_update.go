@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/paveltessman/yaa/pipelines/shared"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
 	"github.com/paveltessman/yaa/platform/telegram"
@@ -27,7 +28,7 @@ func ParseUpdate(ctx context.Context, session *session.Session) error {
 
 	if update.Message == nil {
 		log.Println("telegram update discarded: no message")
-		return nil
+		return shared.ErrCompleted
 	}
 	session.Update = &update
 	session.Message = models.FromTgMessage(update.Message)

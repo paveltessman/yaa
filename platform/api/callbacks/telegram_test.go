@@ -21,7 +21,7 @@ func quietLog(t *testing.T) {
 }
 
 func handler() http.Handler {
-	h := Telegram(shared.Run, []shared.Handler[*session.Session]{})
+	h := Telegram(shared.Run, shared.Chain[*session.Session]{})
 	return h
 }
 

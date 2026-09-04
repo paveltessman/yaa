@@ -91,7 +91,7 @@ func TestParseUpdateDiscardsUpdateWithoutMessage(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			s := newSession(raw)
 
-			if err := ParseUpdate(context.Background(), s); err != nil {
+			if err := ParseUpdate(context.Background(), s); !errors.Is(err, shared.ErrCompleted) {
 				t.Fatalf("want no error, got %v", err)
 			}
 			if s.Update != nil {
