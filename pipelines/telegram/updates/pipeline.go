@@ -22,17 +22,25 @@ func errorHandler(ctx context.Context, session *session.Session, err error) erro
 	return err
 }
 
-func NewChain(repo ports.DBRepo, agentRunner handlers.AgentRunner) shared.Chain[*session.Session] {
+func NewChain(
+	client ports.Sender,
+	repo ports.DBRepo,
+	agentRunner handlers.AgentRunner,
+) shared.Chain[*session.Session] {
 	parseUpdate := shared.HandlerFunc[*session.Session](handlers.ParseUpdate)
 	storeMessage := handlers.NewStoreMessage(repo)
 	loadThread := handlers.NewLoadThread(repo)
 	runAgent := handlers.NewRunAgent(agentRunner)
+	sendReply := handlers.NewSendReply(client)
+	storeReply := handlers.NewStoreReply(repo)
 
 	chain := []shared.Handler[*session.Session]{
 		parseUpdate,
 		storeMessage,
 		loadThread,
 		runAgent,
+		sendReply,
+		storeReply,
 	}
 	return shared.NewChain(chain, errorHandler)
 }

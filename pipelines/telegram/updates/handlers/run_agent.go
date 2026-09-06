@@ -28,8 +28,11 @@ func (h RunAgent) Handle(ctx context.Context, session *session.Session) error {
 	s := agent.NewSession(nil)
 	chain := pipelines.NewChain()
 	err := h.agentRunner(ctx, s, chain)
-	if err == nil {
-		log.Println(s.Reply)
+	if err != nil {
+		return err
 	}
-	return err
+
+	session.Reply = s.Reply
+	log.Println(s.Reply)
+	return nil
 }
