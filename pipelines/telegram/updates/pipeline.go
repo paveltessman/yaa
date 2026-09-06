@@ -32,6 +32,7 @@ func NewChain(
 	loadThread := handlers.NewLoadThread(repo)
 	runAgent := handlers.NewRunAgent(agentRunner)
 	sendReply := handlers.NewSendReply(client)
+	storeReply := handlers.NewStoreReply(repo)
 
 	chain := []shared.Handler[*session.Session]{
 		parseUpdate,
@@ -39,6 +40,7 @@ func NewChain(
 		loadThread,
 		runAgent,
 		sendReply,
+		storeReply,
 	}
 	return shared.NewChain(chain, errorHandler)
 }
