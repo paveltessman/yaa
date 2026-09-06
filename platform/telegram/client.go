@@ -12,10 +12,10 @@ import (
 )
 
 var _ ports.Webhooker = (*Client)(nil)
+var _ ports.Sender = (*Client)(nil)
 
 const apiURL = "https://api.telegram.org/bot"
 
-// requestTimeout caps one call to the telegram api.
 const requestTimeout = 10 * time.Second
 
 var ErrTelegramAPIFailed = errors.New("telegram api failed")
@@ -38,6 +38,35 @@ type GetMeResponse struct {
 		ID    int64
 		IsBot bool `json:"is_bot"`
 	}
+}
+
+type sendMessageResponse struct {
+	baseResponse
+	Result struct {
+		ID       int64 `json:"message_id"`
+		ThreadID int64 `json:"message_thread_id"`
+		From     struct {
+			ID int64
+		}
+		Chat struct {
+			ID int64
+		}
+		Text string
+		Date int64
+	}
+}
+
+func (r *sendMessageResponse) toMessage() *ports.Message {
+	message := ports.Message{
+		ID:       r.Result.ID,
+		ChatID:   r.Result.Chat.ID,
+		ThreadID: r.Result.ThreadID,
+		UserID:   r.Result.From.ID,
+		Type:     ports.ToUser,
+		Date:     time.Unix(r.Result.Date, 0),
+		Text:     r.Result.Text,
+	}
+	return &message
 }
 
 type Client struct {
@@ -77,6 +106,16 @@ func (c *Client) DeleteWebhook(ctx context.Context) error {
 	const path = "/deleteWebhook"
 	err := c.request(ctx, path, &baseResponse{}, nil)
 	return err
+}
+
+func (c *Client) SendMessage(ctx context.Context, params ports.SendMessageParams) (*ports.Message, error) {
+	const path = "/sendMessage"
+	resp := &sendMessageResponse{}
+	err := c.request(ctx, path, resp, params)
+	if err != nil {
+		return nil, err
+	}
+	return resp.toMessage(), nil
 }
 
 func (c *Client) request(ctx context.Context, path string, respModel oker, data any) error {

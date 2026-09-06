@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/platform/network"
@@ -134,12 +135,98 @@ func TestDeleteWebhookRequest(t *testing.T) {
 	}
 }
 
+func TestSendMessageRequest(t *testing.T) {
+	cases := map[string]struct {
+		params   ports.SendMessageParams
+		wantBody string
+	}{
+		"with thread": {
+			ports.SendMessageParams{ChatID: 40, ThreadID: 20, Text: "hello"},
+			`{"chat_id":40,"message_thread_id":20,"text":"hello"}`,
+		},
+		"without thread": {
+			ports.SendMessageParams{ChatID: 40, Text: "hello"},
+			`{"chat_id":40,"text":"hello"}`,
+		},
+	}
+	for name, key := range cases {
+		t.Run(name, func(t *testing.T) {
+			f, c := newTestClient(t, `{"ok":true,"result":{"message_id":10}}`, nil)
+
+			if _, err := c.SendMessage(t.Context(), key.params); err != nil {
+				t.Fatalf("want no error, got %v", err)
+			}
+
+			if f.Calls != 1 {
+				t.Errorf("want 1 call, got %d", f.Calls)
+			}
+			if want := "/sendMessage"; f.GotPath != want {
+				t.Errorf("want=%q, got=%q", want, f.GotPath)
+			}
+			if f.GotType != network.ApplicationJson {
+				t.Errorf("want content type %q, got %q", network.ApplicationJson, f.GotType)
+			}
+			if string(f.GotBody) != key.wantBody {
+				t.Errorf("want body %q, got %q", key.wantBody, f.GotBody)
+			}
+		})
+	}
+}
+
+func TestSendMessageResult(t *testing.T) {
+	cases := map[string]struct {
+		resp string
+		want ports.Message
+	}{
+		"full message": {
+			`{"ok":true,"result":{"message_id":10,"message_thread_id":20,
+			  "from":{"id":30},"chat":{"id":40},"text":"hello","date":1700000000}}`,
+			ports.Message{
+				ID: 10, ChatID: 40, ThreadID: 20, UserID: 30,
+				Type: ports.ToUser, Date: time.Unix(1700000000, 0), Text: "hello",
+			},
+		},
+		"message without thread": {
+			`{"ok":true,"result":{"message_id":11,"from":{"id":31},"chat":{"id":41},"text":"hi","date":1700000001}}`,
+			ports.Message{
+				ID: 11, ChatID: 41, UserID: 31,
+				Type: ports.ToUser, Date: time.Unix(1700000001, 0), Text: "hi",
+			},
+		},
+		"empty result": {
+			`{"ok":true,"result":{}}`,
+			ports.Message{Type: ports.ToUser, Date: time.Unix(0, 0)},
+		},
+	}
+	for name, key := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, c := newTestClient(t, key.resp, nil)
+
+			got, err := c.SendMessage(t.Context(), ports.SendMessageParams{ChatID: 40, Text: "hello"})
+
+			if err != nil {
+				t.Fatalf("want no error, got %v", err)
+			}
+			if got == nil {
+				t.Fatal("want a message, got nil")
+			}
+			if *got != key.want {
+				t.Errorf("want=%+v, got=%+v", key.want, *got)
+			}
+		})
+	}
+}
+
 var callers = map[string]func(context.Context, *Client) error{
 	"GetMe": func(ctx context.Context, c *Client) error { _, err := c.GetMe(ctx); return err },
 	"SetWebhook": func(ctx context.Context, c *Client) error {
 		return c.SetWebhook(ctx, ports.SetWebhookParams{URL: "https://example.com/hook"})
 	},
 	"DeleteWebhook": func(ctx context.Context, c *Client) error { return c.DeleteWebhook(ctx) },
+	"SendMessage": func(ctx context.Context, c *Client) error {
+		_, err := c.SendMessage(ctx, ports.SendMessageParams{ChatID: 40, Text: "hello"})
+		return err
+	},
 }
 
 func TestRequestTransportError(t *testing.T) {
