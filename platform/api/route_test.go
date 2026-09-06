@@ -21,7 +21,7 @@ import (
 var errTearUp = errors.New("tear up failed")
 var errTearDown = errors.New("tear down failed")
 
-func noopHook(deps Deps) error { return nil }
+func noopHook(ctx context.Context, deps Deps) error { return nil }
 
 func defaultDeps() Deps {
 	s := settings.Settings{
@@ -43,14 +43,22 @@ func withAddr(deps Deps, addr string) Deps {
 	return deps
 }
 
-func failingHook(err error) func(Deps) error {
-	return func(deps Deps) error { return err }
+func failingHook(err error) lifespan {
+	return func(ctx context.Context, deps Deps) error { return err }
 }
 
-func countingHook(calls *int, err error) func(Deps) error {
-	return func(deps Deps) error {
+func countingHook(calls *int, err error) lifespan {
+	return func(ctx context.Context, deps Deps) error {
 		*calls++
 		return err
+	}
+}
+
+func liveCheckHook(ran *bool, ctxErr *error) lifespan {
+	return func(ctx context.Context, deps Deps) error {
+		*ran = true
+		*ctxErr = ctx.Err()
+		return nil
 	}
 }
 
@@ -319,5 +327,49 @@ func TestNewRouterRoutes(t *testing.T) {
 				t.Errorf("want=%d, got=%d", key.want, rec.Code)
 			}
 		})
+	}
+}
+
+func TestServeTearsDownWithALiveContext(t *testing.T) {
+	var ran bool
+	var ctxErr error
+	deps := defaultDeps()
+	addr, cancel, errs := startServe(t, NewRouter(deps), deps, noopHook, liveCheckHook(&ran, &ctxErr))
+	waitForServer(t, addr)
+
+	cancel()
+
+	if err := waitResult(t, errs); err != nil {
+		t.Errorf("want no error on a clean shutdown, got %v", err)
+	}
+	if !ran {
+		t.Fatal("want a tear down call, got none")
+	}
+	if ctxErr != nil {
+		t.Errorf("want a live context for tear down, got %v", ctxErr)
+	}
+}
+
+func TestTearUpAndTearDownPassTheContext(t *testing.T) {
+	type key struct{}
+	client := telegram.FakeClient{}
+	deps := defaultDeps()
+	deps.tgClient = &client
+	ctx := context.WithValue(t.Context(), key{}, "marker")
+
+	if err := tearUp(ctx, deps); err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+	if err := tearDown(ctx, deps); err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	if len(client.Contexts) != 2 {
+		t.Fatalf("want 2 contexts, got %d", len(client.Contexts))
+	}
+	for i, got := range client.Contexts {
+		if value := got.Value(key{}); value != "marker" {
+			t.Errorf("context %d: want=%q, got=%v", i, "marker", value)
+		}
 	}
 }

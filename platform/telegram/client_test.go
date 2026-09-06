@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -15,6 +16,7 @@ type fakeRequester struct {
 	err  error
 
 	calls   int
+	gotCtx  context.Context
 	gotPath string
 	gotType network.ContentType
 	gotBody []byte
@@ -22,14 +24,16 @@ type fakeRequester struct {
 
 var _ network.HTTPRequester = (*fakeRequester)(nil)
 
-func (f *fakeRequester) GetBytes(path string) ([]byte, error) {
+func (f *fakeRequester) GetBytes(ctx context.Context, path string) ([]byte, error) {
 	f.calls++
+	f.gotCtx = ctx
 	f.gotPath = path
 	return f.resp, f.err
 }
 
-func (f *fakeRequester) PostBytes(path string, contentType network.ContentType, body []byte) ([]byte, error) {
+func (f *fakeRequester) PostBytes(ctx context.Context, path string, contentType network.ContentType, body []byte) ([]byte, error) {
 	f.calls++
+	f.gotCtx = ctx
 	f.gotPath = path
 	f.gotType = contentType
 	f.gotBody = body
@@ -85,7 +89,7 @@ func TestNewClientKeepsSession(t *testing.T) {
 func TestGetMeRequest(t *testing.T) {
 	f, c := newTestClient(t, `{"ok":true,"result":{"id":1,"is_bot":true}}`, nil)
 
-	if _, err := c.GetMe(); err != nil {
+	if _, err := c.GetMe(t.Context()); err != nil {
 		t.Fatalf("want no error, got %v", err)
 	}
 
@@ -116,7 +120,7 @@ func TestSetWebhookRequest(t *testing.T) {
 				AllowedUpdates: []string{"message"},
 			}
 
-			if err := c.SetWebhook(params); err != nil {
+			if err := c.SetWebhook(t.Context(), params); err != nil {
 				t.Fatalf("want no error, got %v", err)
 			}
 
@@ -139,7 +143,7 @@ func TestSetWebhookRequest(t *testing.T) {
 func TestDeleteWebhookRequest(t *testing.T) {
 	f, c := newTestClient(t, `{"ok":true}`, nil)
 
-	if err := c.DeleteWebhook(); err != nil {
+	if err := c.DeleteWebhook(t.Context()); err != nil {
 		t.Fatalf("want no error, got %v", err)
 	}
 
@@ -157,10 +161,12 @@ func TestDeleteWebhookRequest(t *testing.T) {
 	}
 }
 
-var callers = map[string]func(*Client) error{
-	"GetMe":         func(c *Client) error { _, err := c.GetMe(); return err },
-	"SetWebhook":    func(c *Client) error { return c.SetWebhook(SetWebhookParams{URL: "https://example.com/hook"}) },
-	"DeleteWebhook": func(c *Client) error { return c.DeleteWebhook() },
+var callers = map[string]func(context.Context, *Client) error{
+	"GetMe": func(ctx context.Context, c *Client) error { _, err := c.GetMe(ctx); return err },
+	"SetWebhook": func(ctx context.Context, c *Client) error {
+		return c.SetWebhook(ctx, SetWebhookParams{URL: "https://example.com/hook"})
+	},
+	"DeleteWebhook": func(ctx context.Context, c *Client) error { return c.DeleteWebhook(ctx) },
 }
 
 func TestRequestTransportError(t *testing.T) {
@@ -168,7 +174,7 @@ func TestRequestTransportError(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, c := newTestClient(t, "", errTransport)
 
-			err := call(c)
+			err := call(t.Context(), c)
 
 			if !errors.Is(err, errTransport) {
 				t.Errorf("want errTransport, got %v", err)
@@ -193,7 +199,7 @@ func TestRequestBadJSON(t *testing.T) {
 			t.Run(name+"/"+caller, func(t *testing.T) {
 				_, c := newTestClient(t, resp, nil)
 
-				err := call(c)
+				err := call(t.Context(), c)
 
 				if err == nil {
 					t.Fatalf("want an error, got nil")
@@ -217,7 +223,7 @@ func TestRequestAPIFailure(t *testing.T) {
 			t.Run(name+"/"+caller, func(t *testing.T) {
 				_, c := newTestClient(t, resp, nil)
 
-				err := call(c)
+				err := call(t.Context(), c)
 
 				if !errors.Is(err, ErrTelegramAPIFailed) {
 					t.Fatalf("want ErrTelegramAPIFailed, got %v", err)
@@ -227,5 +233,25 @@ func TestRequestAPIFailure(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestRequestPassesContext(t *testing.T) {
+	type key struct{}
+	for name, call := range callers {
+		t.Run(name, func(t *testing.T) {
+			f, c := newTestClient(t, `{"ok":true}`, nil)
+			ctx := context.WithValue(t.Context(), key{}, "marker")
+
+			if err := call(ctx, c); err != nil {
+				t.Fatalf("want no error, got %v", err)
+			}
+			if f.gotCtx == nil {
+				t.Fatal("want a context, got nil")
+			}
+			if got := f.gotCtx.Value(key{}); got != "marker" {
+				t.Errorf("want=%q, got=%v", "marker", got)
+			}
+		})
 	}
 }
