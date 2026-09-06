@@ -10,7 +10,6 @@ import (
 	"github.com/paveltessman/yaa/pipelines/shared"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
-	"github.com/paveltessman/yaa/platform/telegram"
 )
 
 var ErrParseUpdate = errors.New("can't parse telegram update")
@@ -19,7 +18,7 @@ func ParseUpdate(ctx context.Context, session *session.Session) error {
 	if len(session.RawUpdate) == 0 {
 		return fmt.Errorf("%w: update is empty", ErrParseUpdate)
 	}
-	var update telegram.Update
+	var update models.WhUpdate
 
 	err := json.Unmarshal(session.RawUpdate, &update)
 	if err != nil {
@@ -31,7 +30,7 @@ func ParseUpdate(ctx context.Context, session *session.Session) error {
 		return shared.ErrCompleted
 	}
 	session.Update = &update
-	session.Message = models.FromTgMessage(update.Message)
+	session.Message = update.Message.ToMessage()
 	log.Println(update.Message)
 	return nil
 }

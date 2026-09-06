@@ -8,18 +8,18 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
+	. "github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/platform/db/dbtest"
 	"github.com/paveltessman/yaa/platform/db/internal/sqlc"
 )
 
-func newMessage() *models.Message {
-	message := models.Message{
+func newMessage() *Message {
+	message := Message{
 		ID:       10,
 		ChatID:   40,
 		ThreadID: 20,
 		UserID:   30,
-		Type:     models.FromUser,
+		Type:     FromUser,
 		Date:     time.Unix(1700000000, 0),
 		Text:     "hello",
 	}
@@ -93,7 +93,7 @@ func TestStoreMessageStoresBothTypes(t *testing.T) {
 	pool := dbtest.NewPool(t)
 	repo := New(pool)
 
-	for i, messageType := range []models.MessageType{models.FromUser, models.ToUser} {
+	for i, messageType := range []MessageType{FromUser, ToUser} {
 		t.Run(string(messageType), func(t *testing.T) {
 			message := newMessage()
 			message.ID += int64(i)
@@ -170,7 +170,7 @@ func TestStoreMessageKeepsTheSameIDInAnotherChat(t *testing.T) {
 	}
 }
 
-func store(t *testing.T, repo *Repo, messages ...*models.Message) {
+func store(t *testing.T, repo *Repo, messages ...*Message) {
 	t.Helper()
 
 	for _, message := range messages {
@@ -180,7 +180,7 @@ func store(t *testing.T, repo *Repo, messages ...*models.Message) {
 	}
 }
 
-func ids(messages []*models.Message) []int64 {
+func ids(messages []*Message) []int64 {
 	got := make([]int64, 0, len(messages))
 	for _, message := range messages {
 		got = append(got, message.ID)
@@ -300,7 +300,7 @@ func TestLoadThreadReadsBothTypes(t *testing.T) {
 	fromUser := newMessage()
 	toUser := newMessage()
 	toUser.ID = fromUser.ID + 1
-	toUser.Type = models.ToUser
+	toUser.Type = ToUser
 	store(t, repo, fromUser, toUser)
 
 	got, err := repo.LoadThread(t.Context(), fromUser.ChatID, fromUser.ThreadID)
@@ -311,11 +311,11 @@ func TestLoadThreadReadsBothTypes(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("want 2 messages, got %d", len(got))
 	}
-	if got[0].Type != models.FromUser {
-		t.Errorf("type: want=%s, got=%s", models.FromUser, got[0].Type)
+	if got[0].Type != FromUser {
+		t.Errorf("type: want=%s, got=%s", FromUser, got[0].Type)
 	}
-	if got[1].Type != models.ToUser {
-		t.Errorf("type: want=%s, got=%s", models.ToUser, got[1].Type)
+	if got[1].Type != ToUser {
+		t.Errorf("type: want=%s, got=%s", ToUser, got[1].Type)
 	}
 }
 

@@ -7,11 +7,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/platform/db/internal/sqlc"
 )
 
-var _ models.DBRepo = (*Repo)(nil)
+var _ ports.DBRepo = (*Repo)(nil)
 
 type Repo struct {
 	queries *sqlc.Queries
@@ -26,7 +26,7 @@ func New(pool *pgxpool.Pool) *Repo {
 	return &repo
 }
 
-func (r *Repo) StoreMessage(ctx context.Context, message *models.Message) error {
+func (r *Repo) StoreMessage(ctx context.Context, message *ports.Message) error {
 	params := sqlc.StoreTgMessageParams{
 		ID:        uuid.NewV7(),
 		MessageID: message.ID,
@@ -44,7 +44,7 @@ func (r *Repo) StoreMessage(ctx context.Context, message *models.Message) error 
 	return nil
 }
 
-func (r *Repo) LoadThread(ctx context.Context, chatID, threadID int64) ([]*models.Message, error) {
+func (r *Repo) LoadThread(ctx context.Context, chatID, threadID int64) ([]*ports.Message, error) {
 	params := sqlc.LoadTgThreadParams{
 		ChatID:   chatID,
 		ThreadID: threadID,
@@ -55,20 +55,20 @@ func (r *Repo) LoadThread(ctx context.Context, chatID, threadID int64) ([]*model
 		return nil, fmt.Errorf("tgupdates: can't load thread %d of chat %d: %w", threadID, chatID, err)
 	}
 
-	messages := make([]*models.Message, 0, len(rows))
+	messages := make([]*ports.Message, 0, len(rows))
 	for _, row := range rows {
 		messages = append(messages, toMessage(row))
 	}
 	return messages, nil
 }
 
-func toMessage(row sqlc.TgMessage) *models.Message {
-	message := models.Message{
+func toMessage(row sqlc.TgMessage) *ports.Message {
+	message := ports.Message{
 		ID:       row.MessageID,
 		ChatID:   row.ChatID,
 		ThreadID: row.ThreadID,
 		UserID:   row.UserID,
-		Type:     models.MessageType(row.Type),
+		Type:     ports.MessageType(row.Type),
 		Date:     row.Date,
 		Text:     row.Text,
 	}

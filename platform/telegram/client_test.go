@@ -6,43 +6,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/platform/network"
+	testkit "github.com/paveltessman/yaa/platform/testkit/network"
 )
 
 var errTransport = errors.New("transport is down")
 
-type fakeRequester struct {
-	resp []byte
-	err  error
-
-	calls   int
-	gotCtx  context.Context
-	gotPath string
-	gotType network.ContentType
-	gotBody []byte
-}
-
-var _ network.HTTPRequester = (*fakeRequester)(nil)
-
-func (f *fakeRequester) GetBytes(ctx context.Context, path string) ([]byte, error) {
-	f.calls++
-	f.gotCtx = ctx
-	f.gotPath = path
-	return f.resp, f.err
-}
-
-func (f *fakeRequester) PostBytes(ctx context.Context, path string, contentType network.ContentType, body []byte) ([]byte, error) {
-	f.calls++
-	f.gotCtx = ctx
-	f.gotPath = path
-	f.gotType = contentType
-	f.gotBody = body
-	return f.resp, f.err
-}
-
-func newTestClient(t *testing.T, resp string, err error) (*fakeRequester, *Client) {
+func newTestClient(t *testing.T, resp string, err error) (*testkit.FakeRequester, *Client) {
 	t.Helper()
-	f := &fakeRequester{resp: []byte(resp), err: err}
+	f := &testkit.FakeRequester{Resp: []byte(resp), Err: err}
 	return f, NewClient(f)
 }
 
@@ -74,7 +47,7 @@ func TestNewSession(t *testing.T) {
 }
 
 func TestNewClientKeepsSession(t *testing.T) {
-	f := &fakeRequester{resp: []byte(`{"ok":true}`)}
+	f := &testkit.FakeRequester{Resp: []byte(`{"ok":true}`)}
 
 	c := NewClient(f)
 
@@ -93,17 +66,17 @@ func TestGetMeRequest(t *testing.T) {
 		t.Fatalf("want no error, got %v", err)
 	}
 
-	if f.calls != 1 {
-		t.Errorf("want 1 call, got %d", f.calls)
+	if f.Calls != 1 {
+		t.Errorf("want 1 call, got %d", f.Calls)
 	}
-	if want := "/getMe"; f.gotPath != want {
-		t.Errorf("want=%q, got=%q", want, f.gotPath)
+	if want := "/getMe"; f.GotPath != want {
+		t.Errorf("want=%q, got=%q", want, f.GotPath)
 	}
-	if f.gotType != network.ApplicationJson {
-		t.Errorf("want content type %q, got %q", network.ApplicationJson, f.gotType)
+	if f.GotType != network.ApplicationJson {
+		t.Errorf("want content type %q, got %q", network.ApplicationJson, f.GotType)
 	}
-	if want := "null"; string(f.gotBody) != want {
-		t.Errorf("want body %q, got %q", want, f.gotBody)
+	if want := "null"; string(f.GotBody) != want {
+		t.Errorf("want body %q, got %q", want, f.GotBody)
 	}
 }
 
@@ -115,7 +88,7 @@ func TestSetWebhookRequest(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			f, c := newTestClient(t, `{"ok":true}`, nil)
 
-			params := SetWebhookParams{
+			params := ports.SetWebhookParams{
 				URL:            key.url,
 				AllowedUpdates: []string{"message"},
 			}
@@ -124,17 +97,17 @@ func TestSetWebhookRequest(t *testing.T) {
 				t.Fatalf("want no error, got %v", err)
 			}
 
-			if f.calls != 1 {
-				t.Errorf("want 1 call, got %d", f.calls)
+			if f.Calls != 1 {
+				t.Errorf("want 1 call, got %d", f.Calls)
 			}
-			if want := "/setWebhook"; f.gotPath != want {
-				t.Errorf("want=%q, got=%q", want, f.gotPath)
+			if want := "/setWebhook"; f.GotPath != want {
+				t.Errorf("want=%q, got=%q", want, f.GotPath)
 			}
-			if f.gotType != network.ApplicationJson {
-				t.Errorf("want content type %q, got %q", network.ApplicationJson, f.gotType)
+			if f.GotType != network.ApplicationJson {
+				t.Errorf("want content type %q, got %q", network.ApplicationJson, f.GotType)
 			}
-			if string(f.gotBody) != key.wantBody {
-				t.Errorf("want body %q, got %q", key.wantBody, f.gotBody)
+			if string(f.GotBody) != key.wantBody {
+				t.Errorf("want body %q, got %q", key.wantBody, f.GotBody)
 			}
 		})
 	}
@@ -147,24 +120,24 @@ func TestDeleteWebhookRequest(t *testing.T) {
 		t.Fatalf("want no error, got %v", err)
 	}
 
-	if f.calls != 1 {
-		t.Errorf("want 1 call, got %d", f.calls)
+	if f.Calls != 1 {
+		t.Errorf("want 1 call, got %d", f.Calls)
 	}
-	if want := "/deleteWebhook"; f.gotPath != want {
-		t.Errorf("want=%q, got=%q", want, f.gotPath)
+	if want := "/deleteWebhook"; f.GotPath != want {
+		t.Errorf("want=%q, got=%q", want, f.GotPath)
 	}
-	if f.gotType != network.ApplicationJson {
-		t.Errorf("want content type %q, got %q", network.ApplicationJson, f.gotType)
+	if f.GotType != network.ApplicationJson {
+		t.Errorf("want content type %q, got %q", network.ApplicationJson, f.GotType)
 	}
-	if want := "null"; string(f.gotBody) != want {
-		t.Errorf("want body %q, got %q", want, f.gotBody)
+	if want := "null"; string(f.GotBody) != want {
+		t.Errorf("want body %q, got %q", want, f.GotBody)
 	}
 }
 
 var callers = map[string]func(context.Context, *Client) error{
 	"GetMe": func(ctx context.Context, c *Client) error { _, err := c.GetMe(ctx); return err },
 	"SetWebhook": func(ctx context.Context, c *Client) error {
-		return c.SetWebhook(ctx, SetWebhookParams{URL: "https://example.com/hook"})
+		return c.SetWebhook(ctx, ports.SetWebhookParams{URL: "https://example.com/hook"})
 	},
 	"DeleteWebhook": func(ctx context.Context, c *Client) error { return c.DeleteWebhook(ctx) },
 }
@@ -246,10 +219,10 @@ func TestRequestPassesContext(t *testing.T) {
 			if err := call(ctx, c); err != nil {
 				t.Fatalf("want no error, got %v", err)
 			}
-			if f.gotCtx == nil {
+			if f.GotCtx == nil {
 				t.Fatal("want a context, got nil")
 			}
-			if got := f.gotCtx.Value(key{}); got != "marker" {
+			if got := f.GotCtx.Value(key{}); got != "marker" {
 				t.Errorf("want=%q, got=%v", "marker", got)
 			}
 		})

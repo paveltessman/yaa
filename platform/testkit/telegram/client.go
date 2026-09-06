@@ -1,8 +1,12 @@
 package telegram
 
-import "context"
+import (
+	"context"
 
-var _ APIClient = (*FakeClient)(nil)
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
+)
+
+var _ ports.Webhooker = (*FakeClient)(nil)
 
 type FakeClient struct {
 	Error      error
@@ -10,7 +14,7 @@ type FakeClient struct {
 	Contexts   []context.Context
 }
 
-func (c *FakeClient) SetWebhook(ctx context.Context, params SetWebhookParams) error {
+func (c *FakeClient) SetWebhook(ctx context.Context, params ports.SetWebhookParams) error {
 	c.record(ctx, "SetWebhook")
 	return c.Error
 }

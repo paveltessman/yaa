@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/platform/network"
 )
 
-var _ APIClient = (*Client)(nil)
+var _ ports.Webhooker = (*Client)(nil)
 
 const apiURL = "https://api.telegram.org/bot"
 
@@ -66,7 +67,7 @@ func (c *Client) GetMe(ctx context.Context) (*GetMeResponse, error) {
 	return resp, nil
 }
 
-func (c *Client) SetWebhook(ctx context.Context, params SetWebhookParams) error {
+func (c *Client) SetWebhook(ctx context.Context, params ports.SetWebhookParams) error {
 	const path = "/setWebhook"
 	err := c.request(ctx, path, &baseResponse{}, params)
 	return err

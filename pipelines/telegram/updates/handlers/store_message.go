@@ -5,17 +5,17 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
 )
 
 var ErrStoreMessage = errors.New("unable to store message")
 
 type StoreMessage struct {
-	repo models.DBRepo
+	repo ports.DBRepo
 }
 
-func NewStoreMessage(repo models.DBRepo) StoreMessage {
+func NewStoreMessage(repo ports.DBRepo) StoreMessage {
 	if repo == nil {
 		panic("db repo object is nil")
 	}

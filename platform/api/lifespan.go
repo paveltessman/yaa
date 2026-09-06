@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
-	"github.com/paveltessman/yaa/platform/telegram"
 )
 
 type lifespan func(context.Context, Deps) error
@@ -14,7 +14,7 @@ var _ lifespan = tearUp
 var _ lifespan = tearDown
 
 func tearUp(ctx context.Context, deps Deps) error {
-	params := telegram.SetWebhookParams{
+	params := ports.SetWebhookParams{
 		URL:            deps.settings.PublicHost + callbacks.TgWebhookPath,
 		AllowedUpdates: []string{"message"},
 	}

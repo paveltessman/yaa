@@ -12,10 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
 	"github.com/paveltessman/yaa/platform/settings"
-	"github.com/paveltessman/yaa/platform/telegram"
+	"github.com/paveltessman/yaa/platform/testkit/telegram"
 )
 
 var errTearUp = errors.New("tear up failed")
@@ -32,7 +31,7 @@ func defaultDeps() Deps {
 	deps := Deps{
 		settings: &s,
 		tgClient: &telegram.FakeClient{},
-		dbRepo:   &models.FakeDBRepo{},
+		dbRepo:   &telegram.FakeDBRepo{},
 	}
 	return deps
 
@@ -283,7 +282,7 @@ func TestIgnoreServerClosed(t *testing.T) {
 }
 
 func TestNewRouterRunsTheChain(t *testing.T) {
-	repo := models.FakeDBRepo{}
+	repo := telegram.FakeDBRepo{}
 	deps := defaultDeps()
 	deps.dbRepo = &repo
 	body := `{"update_id":1,"message":{"message_id":10,"message_thread_id":20,
