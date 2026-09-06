@@ -5,17 +5,17 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
 )
 
 var ErrLoadThread = errors.New("unable to load thread")
 
 type LoadThread struct {
-	repo models.DBRepo
+	repo ports.DBRepo
 }
 
-func NewLoadThread(repo models.DBRepo) LoadThread {
+func NewLoadThread(repo ports.DBRepo) LoadThread {
 	if repo == nil {
 		panic("db repo object is nil")
 	}

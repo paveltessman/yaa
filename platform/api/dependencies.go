@@ -2,7 +2,6 @@ package api
 
 import (
 	"github.com/paveltessman/yaa/pipelines/telegram/ports"
-	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
 	"github.com/paveltessman/yaa/platform/settings"
 	"github.com/paveltessman/yaa/platform/telegram"
 )
@@ -10,10 +9,10 @@ import (
 type Deps struct {
 	settings *settings.Settings
 	tgClient ports.Webhooker
-	dbRepo   models.DBRepo
+	dbRepo   ports.DBRepo
 }
 
-func NewDeps(s *settings.Settings, tgClient *telegram.Client, dbRepo models.DBRepo) Deps {
+func NewDeps(s *settings.Settings, tgClient *telegram.Client, dbRepo ports.DBRepo) Deps {
 	switch {
 	case s == nil:
 		panic("settings object is nil")

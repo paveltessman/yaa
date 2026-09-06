@@ -2,6 +2,7 @@ package session
 
 import (
 	"github.com/paveltessman/yaa/pipelines/shared"
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
 )
 
@@ -11,6 +12,6 @@ type Session struct {
 	*shared.BaseSession
 	RawUpdate []byte
 	Update    *models.WhUpdate
-	Message   *models.Message
-	Thread    []*models.Message
+	Message   *ports.Message
+	Thread    []*ports.Message
 }

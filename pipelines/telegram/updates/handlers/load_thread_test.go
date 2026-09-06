@@ -7,35 +7,36 @@ import (
 	"time"
 
 	"github.com/paveltessman/yaa/pipelines/shared"
-	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
+	. "github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
+	"github.com/paveltessman/yaa/platform/testkit/telegram"
 )
 
-func newThread() []*models.Message {
-	older := models.Message{
+func newThread() []*Message {
+	older := Message{
 		ID:       9,
 		ChatID:   40,
 		ThreadID: 20,
 		UserID:   30,
-		Type:     models.FromUser,
+		Type:     FromUser,
 		Date:     time.Unix(1699999999, 0),
 		Text:     "hello there",
 	}
-	answer := models.Message{
+	answer := Message{
 		ID:       10,
 		ChatID:   40,
 		ThreadID: 20,
 		UserID:   30,
-		Type:     models.ToUser,
+		Type:     ToUser,
 		Date:     time.Unix(1700000000, 0),
 		Text:     "hi yourself",
 	}
-	return []*models.Message{&older, &answer}
+	return []*Message{&older, &answer}
 }
 
 func TestLoadThreadPutsTheThreadOnTheSession(t *testing.T) {
 	thread := newThread()
-	repo := models.FakeDBRepo{Thread: thread}
+	repo := telegram.FakeDBRepo{Thread: thread}
 	h := NewLoadThread(&repo)
 	s := newSessionWithMessage(newMessage())
 
@@ -56,7 +57,7 @@ func TestLoadThreadPutsTheThreadOnTheSession(t *testing.T) {
 }
 
 func TestLoadThreadAsksForTheChatAndThreadOfTheMessage(t *testing.T) {
-	repo := models.FakeDBRepo{Thread: newThread()}
+	repo := telegram.FakeDBRepo{Thread: newThread()}
 	h := NewLoadThread(&repo)
 	message := newMessage()
 	s := newSessionWithMessage(message)
@@ -67,14 +68,14 @@ func TestLoadThreadAsksForTheChatAndThreadOfTheMessage(t *testing.T) {
 	if len(repo.LoadThreadCalls) != 1 {
 		t.Fatalf("want 1 call, got %d", len(repo.LoadThreadCalls))
 	}
-	want := models.LoadThreadCall{ChatID: message.ChatID, ThreadID: message.ThreadID}
+	want := telegram.LoadThreadCall{ChatID: message.ChatID, ThreadID: message.ThreadID}
 	if got := repo.LoadThreadCalls[0]; got != want {
 		t.Errorf("want=%+v, got=%+v", want, got)
 	}
 }
 
 func TestLoadThreadAsksForTheThreadOfAChatWithoutTopics(t *testing.T) {
-	repo := models.FakeDBRepo{}
+	repo := telegram.FakeDBRepo{}
 	h := NewLoadThread(&repo)
 	message := newMessage()
 	message.ThreadID = 0
@@ -86,14 +87,14 @@ func TestLoadThreadAsksForTheThreadOfAChatWithoutTopics(t *testing.T) {
 	if len(repo.LoadThreadCalls) != 1 {
 		t.Fatalf("want 1 call, got %d", len(repo.LoadThreadCalls))
 	}
-	want := models.LoadThreadCall{ChatID: message.ChatID, ThreadID: 0}
+	want := telegram.LoadThreadCall{ChatID: message.ChatID, ThreadID: 0}
 	if got := repo.LoadThreadCalls[0]; got != want {
 		t.Errorf("want=%+v, got=%+v", want, got)
 	}
 }
 
 func TestLoadThreadKeepsMessageOnSession(t *testing.T) {
-	repo := models.FakeDBRepo{Thread: newThread()}
+	repo := telegram.FakeDBRepo{Thread: newThread()}
 	h := NewLoadThread(&repo)
 	message := newMessage()
 	s := newSessionWithMessage(message)
@@ -108,7 +109,7 @@ func TestLoadThreadKeepsMessageOnSession(t *testing.T) {
 
 func TestLoadThreadPassesContext(t *testing.T) {
 	type key struct{}
-	repo := models.FakeDBRepo{Thread: newThread()}
+	repo := telegram.FakeDBRepo{Thread: newThread()}
 	h := NewLoadThread(&repo)
 	s := newSessionWithMessage(newMessage())
 	ctx := context.WithValue(context.Background(), key{}, "marker")
@@ -125,7 +126,7 @@ func TestLoadThreadPassesContext(t *testing.T) {
 }
 
 func TestLoadThreadRejectsSessionWithoutMessage(t *testing.T) {
-	repo := models.FakeDBRepo{Thread: newThread()}
+	repo := telegram.FakeDBRepo{Thread: newThread()}
 	h := NewLoadThread(&repo)
 	s := newSessionWithMessage(nil)
 
@@ -147,7 +148,7 @@ func TestLoadThreadRejectsSessionWithoutMessage(t *testing.T) {
 
 func TestLoadThreadWrapsRepoError(t *testing.T) {
 	repoErr := errors.New("connection refused")
-	repo := models.FakeDBRepo{Thread: newThread(), Error: repoErr}
+	repo := telegram.FakeDBRepo{Thread: newThread(), Error: repoErr}
 	h := NewLoadThread(&repo)
 	s := newSessionWithMessage(newMessage())
 
@@ -178,7 +179,7 @@ func TestNewLoadThreadRejectsANilRepo(t *testing.T) {
 }
 
 func TestLoadThreadSatisfiesHandler(t *testing.T) {
-	repo := models.FakeDBRepo{Thread: newThread()}
+	repo := telegram.FakeDBRepo{Thread: newThread()}
 	var h shared.Handler[*session.Session] = NewLoadThread(&repo)
 	s := newSessionWithMessage(newMessage())
 

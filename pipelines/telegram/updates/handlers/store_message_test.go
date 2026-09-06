@@ -7,31 +7,32 @@ import (
 	"time"
 
 	"github.com/paveltessman/yaa/pipelines/shared"
-	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
+	. "github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
+	"github.com/paveltessman/yaa/platform/testkit/telegram"
 )
 
-func newMessage() *models.Message {
-	message := models.Message{
+func newMessage() *Message {
+	message := Message{
 		ID:       10,
 		ChatID:   40,
 		ThreadID: 20,
 		UserID:   30,
-		Type:     models.FromUser,
+		Type:     FromUser,
 		Date:     time.Unix(1700000000, 0),
 		Text:     "hello",
 	}
 	return &message
 }
 
-func newSessionWithMessage(message *models.Message) *session.Session {
+func newSessionWithMessage(message *Message) *session.Session {
 	s := newSession(`{"message":{"message_id":10,"date":1700000000}}`)
 	s.Message = message
 	return s
 }
 
 func TestStoreMessageStoresSessionMessage(t *testing.T) {
-	repo := models.FakeDBRepo{}
+	repo := telegram.FakeDBRepo{}
 	h := NewStoreMessage(&repo)
 	message := newMessage()
 	s := newSessionWithMessage(message)
@@ -51,7 +52,7 @@ func TestStoreMessageStoresSessionMessage(t *testing.T) {
 }
 
 func TestStoreMessageKeepsMessageOnSession(t *testing.T) {
-	repo := models.FakeDBRepo{}
+	repo := telegram.FakeDBRepo{}
 	h := NewStoreMessage(&repo)
 	message := newMessage()
 	s := newSessionWithMessage(message)
@@ -66,7 +67,7 @@ func TestStoreMessageKeepsMessageOnSession(t *testing.T) {
 
 func TestStoreMessagePassesContext(t *testing.T) {
 	type key struct{}
-	repo := models.FakeDBRepo{}
+	repo := telegram.FakeDBRepo{}
 	h := NewStoreMessage(&repo)
 	s := newSessionWithMessage(newMessage())
 	ctx := context.WithValue(context.Background(), key{}, "marker")
@@ -83,7 +84,7 @@ func TestStoreMessagePassesContext(t *testing.T) {
 }
 
 func TestStoreMessageRejectsSessionWithoutMessage(t *testing.T) {
-	repo := models.FakeDBRepo{}
+	repo := telegram.FakeDBRepo{}
 	h := NewStoreMessage(&repo)
 	s := newSessionWithMessage(nil)
 
@@ -102,7 +103,7 @@ func TestStoreMessageRejectsSessionWithoutMessage(t *testing.T) {
 
 func TestStoreMessageWrapsRepoError(t *testing.T) {
 	repoErr := errors.New("connection refused")
-	repo := models.FakeDBRepo{Error: repoErr}
+	repo := telegram.FakeDBRepo{Error: repoErr}
 	h := NewStoreMessage(&repo)
 	s := newSessionWithMessage(newMessage())
 
@@ -130,7 +131,7 @@ func TestNewStoreMessageRejectsANilRepo(t *testing.T) {
 }
 
 func TestStoreMessageSatisfiesHandler(t *testing.T) {
-	repo := models.FakeDBRepo{}
+	repo := telegram.FakeDBRepo{}
 	var h shared.Handler[*session.Session] = NewStoreMessage(&repo)
 	s := newSessionWithMessage(newMessage())
 

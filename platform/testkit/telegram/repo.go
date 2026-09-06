@@ -1,8 +1,12 @@
-package models
+package telegram
 
-import "context"
+import (
+	"context"
 
-var _ DBRepo = (*FakeDBRepo)(nil)
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
+)
+
+var _ ports.DBRepo = (*FakeDBRepo)(nil)
 
 // LoadThreadCall holds the arguments of one LoadThread call.
 type LoadThreadCall struct {
@@ -13,19 +17,19 @@ type LoadThreadCall struct {
 type FakeDBRepo struct {
 	Error           error
 	CallCounts      map[string]int
-	Messages        []*Message
+	Messages        []*ports.Message
 	Contexts        []context.Context
-	Thread          []*Message
+	Thread          []*ports.Message
 	LoadThreadCalls []LoadThreadCall
 }
 
-func (r *FakeDBRepo) StoreMessage(ctx context.Context, message *Message) error {
+func (r *FakeDBRepo) StoreMessage(ctx context.Context, message *ports.Message) error {
 	r.record(ctx, "StoreMessage")
 	r.Messages = append(r.Messages, message)
 	return r.Error
 }
 
-func (r *FakeDBRepo) LoadThread(ctx context.Context, chatID, threadID int64) ([]*Message, error) {
+func (r *FakeDBRepo) LoadThread(ctx context.Context, chatID, threadID int64) ([]*ports.Message, error) {
 	r.record(ctx, "LoadThread")
 	r.LoadThreadCalls = append(r.LoadThreadCalls, LoadThreadCall{ChatID: chatID, ThreadID: threadID})
 	if r.Error != nil {

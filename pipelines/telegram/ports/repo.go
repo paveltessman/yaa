@@ -1,6 +1,7 @@
-package models
+package ports
 
 import (
+	"context"
 	"time"
 )
 
@@ -19,4 +20,9 @@ type Message struct {
 	Type     MessageType
 	Date     time.Time
 	Text     string
+}
+
+type DBRepo interface {
+	StoreMessage(context.Context, *Message) error
+	LoadThread(ctx context.Context, chatID, threadID int64) ([]*Message, error)
 }

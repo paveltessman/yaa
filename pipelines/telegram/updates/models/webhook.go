@@ -3,6 +3,8 @@ package models
 import (
 	"fmt"
 	"time"
+
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 )
 
 type WhUpdate struct {
@@ -30,13 +32,13 @@ func (m *WhMessage) String() string {
 	return s
 }
 
-func (m *WhMessage) ToMessage() *Message {
-	message := Message{
+func (m *WhMessage) ToMessage() *ports.Message {
+	message := ports.Message{
 		ID:       m.ID,
 		ChatID:   m.Chat.ID,
 		ThreadID: m.ThreadID,
 		UserID:   m.From.ID,
-		Type:     FromUser,
+		Type:     ports.FromUser,
 		Date:     m.Time(),
 		Text:     m.Text,
 	}
