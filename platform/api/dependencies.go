@@ -8,7 +8,7 @@ import (
 
 type Deps struct {
 	settings *settings.Settings
-	tgClient ports.Webhooker
+	tgClient ports.Client
 	dbRepo   ports.DBRepo
 }
 

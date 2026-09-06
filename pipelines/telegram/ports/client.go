@@ -21,3 +21,8 @@ type SendMessageParams struct {
 type Sender interface {
 	SendMessage(context.Context, SendMessageParams) (*Message, error)
 }
+
+type Client interface {
+	Webhooker
+	Sender
+}
