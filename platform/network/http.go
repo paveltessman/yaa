@@ -2,6 +2,7 @@ package network
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -18,7 +19,6 @@ const (
 
 var _ HTTPRequester = (*HTTPSession)(nil)
 
-const defaultTimeout = 10 * time.Second
 const maxBodyBytes = 1024 * 1024 // 1 MB
 
 var ErrHTTPFailed = errors.New("http request failed")
@@ -28,9 +28,12 @@ type HTTPSession struct {
 	client  *http.Client
 }
 
-func NewHTTPSession(baseURL string) *HTTPSession {
+func NewHTTPSession(baseURL string, timeout time.Duration) *HTTPSession {
 	baseURL = prepareBaseURL(baseURL)
-	client := &http.Client{Timeout: defaultTimeout}
+	if timeout <= 0 {
+		panic("timeout must be positive")
+	}
+	client := &http.Client{Timeout: timeout}
 	s := &HTTPSession{
 		baseURL: baseURL,
 		client:  client,
@@ -38,23 +41,23 @@ func NewHTTPSession(baseURL string) *HTTPSession {
 	return s
 }
 
-func (s *HTTPSession) GetBytes(path string) ([]byte, error) {
-	req, err := s.newRequest(http.MethodGet, path, "", nil)
+func (s *HTTPSession) GetBytes(ctx context.Context, path string) ([]byte, error) {
+	req, err := s.newRequest(ctx, http.MethodGet, path, "", nil)
 	if err != nil {
 		return nil, err
 	}
 	return s.do(req)
 }
 
-func (s *HTTPSession) PostBytes(path string, contentType ContentType, body []byte) ([]byte, error) {
-	req, err := s.newRequest(http.MethodPost, path, contentType, body)
+func (s *HTTPSession) PostBytes(ctx context.Context, path string, contentType ContentType, body []byte) ([]byte, error) {
+	req, err := s.newRequest(ctx, http.MethodPost, path, contentType, body)
 	if err != nil {
 		return nil, err
 	}
 	return s.do(req)
 }
 
-func (s *HTTPSession) newRequest(method, path string, contentType ContentType, body []byte) (*http.Request, error) {
+func (s *HTTPSession) newRequest(ctx context.Context, method, path string, contentType ContentType, body []byte) (*http.Request, error) {
 	path = preparePath(path)
 	u, err := url.JoinPath(s.baseURL, path)
 	if err != nil {
@@ -66,7 +69,7 @@ func (s *HTTPSession) newRequest(method, path string, contentType ContentType, b
 		reader = bytes.NewReader(body)
 	}
 
-	req, err := http.NewRequest(method, u, reader)
+	req, err := http.NewRequestWithContext(ctx, method, u, reader)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrHTTPFailed, err)
 	}

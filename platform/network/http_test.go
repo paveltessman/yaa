@@ -2,19 +2,29 @@ package network
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
+
+const testTimeout = 5 * time.Second
 
 func newTestSession(t *testing.T, prefix string, h http.HandlerFunc) (*httptest.Server, *HTTPSession) {
 	t.Helper()
+	return newTestSessionTimeout(t, prefix, testTimeout, h)
+}
+
+func newTestSessionTimeout(t *testing.T, prefix string, timeout time.Duration, h http.HandlerFunc) (*httptest.Server, *HTTPSession) {
+	t.Helper()
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	return srv, NewHTTPSession(srv.URL + prefix)
+	return srv, NewHTTPSession(srv.URL+prefix, timeout)
 }
 
 func TestGetBytesStatus(t *testing.T) {
@@ -36,7 +46,7 @@ func TestGetBytesStatus(t *testing.T) {
 				_, _ = w.Write([]byte("payload"))
 			})
 
-			got, err := s.GetBytes("/path")
+			got, err := s.GetBytes(t.Context(), "/path")
 
 			if key.wantErr {
 				if !errors.Is(err, ErrHTTPFailed) {
@@ -73,7 +83,7 @@ func TestGetBytesBodySize(t *testing.T) {
 				_, _ = w.Write(bytes.Repeat([]byte("a"), key.size))
 			})
 
-			got, err := s.GetBytes("data")
+			got, err := s.GetBytes(t.Context(), "data")
 
 			if key.wantErr {
 				if !errors.Is(err, ErrHTTPFailed) {
@@ -107,7 +117,7 @@ func TestGetBytesRequestURI(t *testing.T) {
 				gotURI = r.RequestURI
 			})
 
-			if _, err := s.GetBytes(key.path); err != nil {
+			if _, err := s.GetBytes(t.Context(), key.path); err != nil {
 				t.Fatalf("want no error, got %v", err)
 			}
 			if gotURI != key.want {
@@ -122,7 +132,7 @@ func TestGetBytesTransportFailure(t *testing.T) {
 		srv, s := newTestSession(t, "", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 		srv.Close()
 
-		if _, err := s.GetBytes("data"); !errors.Is(err, ErrHTTPFailed) {
+		if _, err := s.GetBytes(t.Context(), "data"); !errors.Is(err, ErrHTTPFailed) {
 			t.Errorf("want ErrHTTPFailed, got %v", err)
 		}
 	})
@@ -135,7 +145,7 @@ func TestGetBytesTransportFailure(t *testing.T) {
 			panic(http.ErrAbortHandler)
 		})
 
-		_, err := s.GetBytes("data")
+		_, err := s.GetBytes(t.Context(), "data")
 		if !errors.Is(err, ErrHTTPFailed) {
 			t.Fatalf("want ErrHTTPFailed, got %v", err)
 		}
@@ -223,7 +233,7 @@ func TestPostBytesRequest(t *testing.T) {
 				_, _ = w.Write([]byte("answer"))
 			})
 
-			got, err := s.PostBytes("data", key.contentType, []byte(key.body))
+			got, err := s.PostBytes(t.Context(), "data", key.contentType, []byte(key.body))
 			if err != nil {
 				t.Fatalf("want no error, got %v", err)
 			}
@@ -250,7 +260,7 @@ func TestPostBytesNilBody(t *testing.T) {
 		gotLength = r.ContentLength
 	})
 
-	if _, err := s.PostBytes("data", "application/json", nil); err != nil {
+	if _, err := s.PostBytes(t.Context(), "data", "application/json", nil); err != nil {
 		t.Fatalf("want no error, got %v", err)
 	}
 	if gotLength != 0 {
@@ -274,7 +284,7 @@ func TestPostBytesStatus(t *testing.T) {
 				_, _ = w.Write([]byte("payload"))
 			})
 
-			got, err := s.PostBytes("data", "application/json", []byte("{}"))
+			got, err := s.PostBytes(t.Context(), "data", "application/json", []byte("{}"))
 
 			if key.wantErr {
 				if !errors.Is(err, ErrHTTPFailed) {
@@ -307,7 +317,7 @@ func TestPostBytesRequestURI(t *testing.T) {
 				gotURI = r.RequestURI
 			})
 
-			if _, err := s.PostBytes(key.path, "application/json", []byte("{}")); err != nil {
+			if _, err := s.PostBytes(t.Context(), key.path, "application/json", []byte("{}")); err != nil {
 				t.Fatalf("want no error, got %v", err)
 			}
 			if gotURI != key.want {
@@ -321,7 +331,106 @@ func TestPostBytesTransportFailure(t *testing.T) {
 	srv, s := newTestSession(t, "", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	srv.Close()
 
-	if _, err := s.PostBytes("data", "application/json", []byte("{}")); !errors.Is(err, ErrHTTPFailed) {
+	if _, err := s.PostBytes(t.Context(), "data", "application/json", []byte("{}")); !errors.Is(err, ErrHTTPFailed) {
 		t.Errorf("want ErrHTTPFailed, got %v", err)
+	}
+}
+
+func TestNewHTTPSessionTimeout(t *testing.T) {
+	cases := map[string]struct {
+		timeout     time.Duration
+		shouldPanic bool
+	}{
+		"a second":      {time.Second, false},
+		"a millisecond": {time.Millisecond, false},
+		"zero":          {0, true},
+		"negative":      {-time.Second, true},
+	}
+	for name, key := range cases {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				err := recover()
+				if key.shouldPanic && err == nil {
+					t.Errorf("NewHTTPSession accepted %s", name)
+				}
+				if !key.shouldPanic && err != nil {
+					t.Errorf("want no panic, got %v", err)
+				}
+			}()
+
+			s := NewHTTPSession("https://example.com", key.timeout)
+			if s.client.Timeout != key.timeout {
+				t.Errorf("want timeout %v, got %v", key.timeout, s.client.Timeout)
+			}
+		})
+	}
+}
+
+func TestRequestsHonourACancelledContext(t *testing.T) {
+	var calls atomic.Int64
+	_, s := newTestSession(t, "", func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+	})
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	cases := map[string]func() ([]byte, error){
+		"GetBytes":  func() ([]byte, error) { return s.GetBytes(ctx, "data") },
+		"PostBytes": func() ([]byte, error) { return s.PostBytes(ctx, "data", ApplicationJson, []byte("{}")) },
+	}
+	for name, call := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := call()
+
+			if !errors.Is(err, ErrHTTPFailed) {
+				t.Errorf("want ErrHTTPFailed, got %v", err)
+			}
+			if !errors.Is(err, context.Canceled) {
+				t.Errorf("want context.Canceled, got %v", err)
+			}
+		})
+	}
+	if got := calls.Load(); got != 0 {
+		t.Errorf("want no call to reach the server, got %d", got)
+	}
+}
+
+func TestRequestsStopOnTheTimeout(t *testing.T) {
+	release := make(chan struct{})
+	_, s := newTestSessionTimeout(t, "", 50*time.Millisecond, func(w http.ResponseWriter, r *http.Request) {
+		<-release
+	})
+	t.Cleanup(func() { close(release) })
+
+	cases := map[string]func() ([]byte, error){
+		"GetBytes":  func() ([]byte, error) { return s.GetBytes(t.Context(), "data") },
+		"PostBytes": func() ([]byte, error) { return s.PostBytes(t.Context(), "data", ApplicationJson, []byte("{}")) },
+	}
+	for name, call := range cases {
+		t.Run(name, func(t *testing.T) {
+			got, err := call()
+
+			if !errors.Is(err, ErrHTTPFailed) {
+				t.Errorf("want ErrHTTPFailed, got %v", err)
+			}
+			if got != nil {
+				t.Errorf("want no body on a timeout, got %q", got)
+			}
+		})
+	}
+}
+
+func TestNewRequestCarriesTheContext(t *testing.T) {
+	type key struct{}
+	s := NewHTTPSession("https://example.com", testTimeout)
+	ctx := context.WithValue(t.Context(), key{}, "marker")
+
+	req, err := s.newRequest(ctx, http.MethodGet, "data", "", nil)
+
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+	if got := req.Context().Value(key{}); got != "marker" {
+		t.Errorf("want=%q, got=%v", "marker", got)
 	}
 }

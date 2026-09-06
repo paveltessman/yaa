@@ -16,7 +16,7 @@ func run(ctx context.Context, _ []string) error {
 	log.Println("Settings loaded")
 
 	tgClient := telegram.NewClient(telegram.NewSession(s.TgToken))
-	_, err := tgClient.GetMe()
+	_, err := tgClient.GetMe(ctx)
 	if err != nil {
 		return err
 	}

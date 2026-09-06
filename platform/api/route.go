@@ -14,6 +14,7 @@ import (
 )
 
 const shutdownTimeout = 10 * time.Second
+const tearDownTimeout = 10 * time.Second
 const readHeaderTimeout = 10 * time.Second
 const readTimeout = 15 * time.Second
 const writeTimeout = 15 * time.Second
@@ -32,11 +33,14 @@ func Serve(ctx context.Context, deps Deps) error {
 }
 
 func serve(ctx context.Context, deps Deps, handler http.Handler, tearUp, tearDown lifespan) (err error) {
-	if err := tearUp(deps); err != nil {
+	if err := tearUp(ctx, deps); err != nil {
 		return err
 	}
 	defer func() {
-		if tearDownErr := tearDown(deps); tearDownErr != nil {
+		tearDownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), tearDownTimeout)
+		defer cancel()
+
+		if tearDownErr := tearDown(tearDownCtx, deps); tearDownErr != nil {
 			log.Printf("tear down failed: %v", tearDownErr)
 			if err == nil {
 				err = tearDownErr
