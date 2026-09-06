@@ -2,8 +2,6 @@ package models
 
 import (
 	"time"
-
-	"github.com/paveltessman/yaa/platform/telegram"
 )
 
 type MessageType string
@@ -21,17 +19,4 @@ type Message struct {
 	Type     MessageType
 	Date     time.Time
 	Text     string
-}
-
-func FromTgMessage(m *telegram.Message) *Message {
-	message := Message{
-		ID:       m.ID,
-		ChatID:   m.Chat.ID,
-		ThreadID: m.ThreadID,
-		UserID:   m.From.ID,
-		Type:     FromUser,
-		Date:     m.Time(),
-		Text:     m.Text,
-	}
-	return &message
 }

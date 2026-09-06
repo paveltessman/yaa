@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/platform/network"
 )
 
@@ -115,7 +116,7 @@ func TestSetWebhookRequest(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			f, c := newTestClient(t, `{"ok":true}`, nil)
 
-			params := SetWebhookParams{
+			params := ports.SetWebhookParams{
 				URL:            key.url,
 				AllowedUpdates: []string{"message"},
 			}
@@ -164,7 +165,7 @@ func TestDeleteWebhookRequest(t *testing.T) {
 var callers = map[string]func(context.Context, *Client) error{
 	"GetMe": func(ctx context.Context, c *Client) error { _, err := c.GetMe(ctx); return err },
 	"SetWebhook": func(ctx context.Context, c *Client) error {
-		return c.SetWebhook(ctx, SetWebhookParams{URL: "https://example.com/hook"})
+		return c.SetWebhook(ctx, ports.SetWebhookParams{URL: "https://example.com/hook"})
 	},
 	"DeleteWebhook": func(ctx context.Context, c *Client) error { return c.DeleteWebhook(ctx) },
 }

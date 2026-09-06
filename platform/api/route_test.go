@@ -15,7 +15,7 @@ import (
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
 	"github.com/paveltessman/yaa/platform/settings"
-	"github.com/paveltessman/yaa/platform/telegram"
+	"github.com/paveltessman/yaa/platform/testkit/telegram"
 )
 
 var errTearUp = errors.New("tear up failed")

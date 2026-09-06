@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
 	"github.com/paveltessman/yaa/platform/settings"
 	"github.com/paveltessman/yaa/platform/telegram"
@@ -8,7 +9,7 @@ import (
 
 type Deps struct {
 	settings *settings.Settings
-	tgClient telegram.APIClient
+	tgClient ports.Webhooker
 	dbRepo   models.DBRepo
 }
 

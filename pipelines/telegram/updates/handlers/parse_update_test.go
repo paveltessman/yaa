@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/paveltessman/yaa/pipelines/shared"
+	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
-	"github.com/paveltessman/yaa/platform/telegram"
 )
 
 func newSession(raw string) *session.Session {
@@ -22,43 +22,43 @@ func newSession(raw string) *session.Session {
 func TestParseUpdateKeepsMessage(t *testing.T) {
 	cases := map[string]struct {
 		raw  string
-		want telegram.Message
+		want models.WhMessage
 	}{
 		"full message": {
 			`{"update_id":1,"message":{"message_id":10,"message_thread_id":20,
 			  "from":{"id":30},"chat":{"id":40},"text":"hello","date":1700000000}}`,
-			telegram.Message{
+			models.WhMessage{
 				ID: 10, ThreadID: 20,
-				From: telegram.User{ID: 30},
-				Chat: telegram.Chat{ID: 40},
+				From: models.WhUser{ID: 30},
+				Chat: models.WhChat{ID: 40},
 				Text: "hello", Date: 1700000000,
 			},
 		},
 		"message without thread": {
 			`{"message":{"message_id":11,"from":{"id":31},"chat":{"id":41},"text":"hi","date":1700000001}}`,
-			telegram.Message{
+			models.WhMessage{
 				ID:   11,
-				From: telegram.User{ID: 31},
-				Chat: telegram.Chat{ID: 41},
+				From: models.WhUser{ID: 31},
+				Chat: models.WhChat{ID: 41},
 				Text: "hi", Date: 1700000001,
 			},
 		},
 		"message without text": {
 			`{"message":{"message_id":12,"from":{"id":32},"chat":{"id":42},"date":1700000002}}`,
-			telegram.Message{
+			models.WhMessage{
 				ID:   12,
-				From: telegram.User{ID: 32},
-				Chat: telegram.Chat{ID: 42},
+				From: models.WhUser{ID: 32},
+				Chat: models.WhChat{ID: 42},
 				Date: 1700000002,
 			},
 		},
 		"empty message object": {
 			`{"message":{}}`,
-			telegram.Message{},
+			models.WhMessage{},
 		},
 		"unknown fields are dropped": {
 			`{"message":{"message_id":13,"sticker":{"emoji":"x"},"date":1700000003},"edited_message":{"message_id":99}}`,
-			telegram.Message{ID: 13, Date: 1700000003},
+			models.WhMessage{ID: 13, Date: 1700000003},
 		},
 	}
 	for name, key := range cases {

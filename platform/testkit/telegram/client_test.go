@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 )
 
 func TestFakeClientRecordsCalls(t *testing.T) {
@@ -11,7 +13,7 @@ func TestFakeClientRecordsCalls(t *testing.T) {
 	c := FakeClient{}
 	ctx := context.WithValue(t.Context(), key{}, "marker")
 
-	if err := c.SetWebhook(ctx, SetWebhookParams{}); err != nil {
+	if err := c.SetWebhook(ctx, ports.SetWebhookParams{}); err != nil {
 		t.Fatalf("want no error, got %v", err)
 	}
 	if err := c.DeleteWebhook(ctx); err != nil {
@@ -38,7 +40,7 @@ func TestFakeClientReturnsItsError(t *testing.T) {
 	wantErr := errors.New("telegram is down")
 	c := FakeClient{Error: wantErr}
 
-	if err := c.SetWebhook(t.Context(), SetWebhookParams{}); !errors.Is(err, wantErr) {
+	if err := c.SetWebhook(t.Context(), ports.SetWebhookParams{}); !errors.Is(err, wantErr) {
 		t.Errorf("want the fake error, got %v", err)
 	}
 	if err := c.DeleteWebhook(t.Context()); !errors.Is(err, wantErr) {
