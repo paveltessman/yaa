@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
@@ -15,6 +16,20 @@ type LLMBackend interface {
 
 type LLMService struct {
 	backends map[llm.Model]LLMBackend
+}
+
+func NewLLMService(backends map[llm.Model]LLMBackend) *LLMService {
+	if len(backends) == 0 {
+		panic("at least one backend is required")
+	}
+	for model, backend := range backends {
+		if backend == nil {
+			panic(fmt.Sprintf("backend for model %q is nil", model))
+		}
+	}
+
+	s := &LLMService{backends: maps.Clone(backends)}
+	return s
 }
 
 func (s *LLMService) Completion(ctx context.Context, params llm.CompletionParams, response any) error {
