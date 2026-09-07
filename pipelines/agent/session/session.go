@@ -1,17 +1,17 @@
 package session
 
 import (
-	"github.com/paveltessman/yaa/pipelines/agent/models"
 	"github.com/paveltessman/yaa/pipelines/shared"
+	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
 
 type Session struct {
 	shared.BaseSession
-	Thread []models.Message
+	Thread []llm.Message
 	Reply  string
 }
 
-func NewSession(thread []models.Message) *Session {
+func NewSession(thread []llm.Message) *Session {
 	s := Session{
 		Thread: thread,
 	}

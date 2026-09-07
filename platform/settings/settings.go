@@ -11,10 +11,11 @@ const (
 )
 
 type Settings struct {
-	TgToken     string
-	PublicHost  string
-	ApiAddr     string
-	DatabaseURL string
+	TgToken         string
+	AnthropicApiKey string
+	PublicHost      string
+	ApiAddr         string
+	DatabaseURL     string
 }
 
 func DatabaseURL() string {
@@ -32,6 +33,11 @@ func NewSettings() Settings {
 		panic("TG_TOKEN is not set")
 	}
 
+	AnthropicApiKey := os.Getenv("ANTHROPIC_API_KEY")
+	if len(AnthropicApiKey) == 0 {
+		panic("ANTHROPIC_API_KEY is not set")
+	}
+
 	ApiAddr := os.Getenv("API_ADDR")
 	if len(ApiAddr) == 0 {
 		ApiAddr = defaultApiAddr
@@ -43,10 +49,11 @@ func NewSettings() Settings {
 	}
 
 	settings := Settings{
-		TgToken:     TgToken,
-		PublicHost:  PublicHost,
-		ApiAddr:     ApiAddr,
-		DatabaseURL: DatabaseURL(),
+		TgToken:         TgToken,
+		AnthropicApiKey: AnthropicApiKey,
+		PublicHost:      PublicHost,
+		ApiAddr:         ApiAddr,
+		DatabaseURL:     DatabaseURL(),
 	}
 	return settings
 }
