@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+type Model string
+
 var ErrCompletionFailed = errors.New("completion failed")
 
 type Role string
@@ -23,7 +25,7 @@ type Message struct {
 }
 
 type CompletionParams struct {
-	Model        string
+	Model        Model
 	SystemPrompt string
 	Input        []Message
 }
