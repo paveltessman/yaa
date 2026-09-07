@@ -434,3 +434,45 @@ func TestNewRequestCarriesTheContext(t *testing.T) {
 		t.Errorf("want=%q, got=%v", "marker", got)
 	}
 }
+
+func TestSessionSendsItsHeaders(t *testing.T) {
+	got := make(http.Header)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+	}))
+	t.Cleanup(srv.Close)
+	headers := map[string]string{"x-api-key": "secret", "anthropic-version": "2023-06-01"}
+	s := NewHTTPSessionWithHeaders(srv.URL, testTimeout, headers)
+
+	if _, err := s.PostBytes(t.Context(), "/path", ApplicationJson, []byte("{}")); err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	for name, want := range headers {
+		if value := got.Get(name); value != want {
+			t.Errorf("want %s=%q, got %q", name, want, value)
+		}
+	}
+	if value := got.Get("Content-Type"); value != string(ApplicationJson) {
+		t.Errorf("want the content type %q, got %q", ApplicationJson, value)
+	}
+}
+
+func TestSessionCopiesItsHeaders(t *testing.T) {
+	got := make(http.Header)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+	}))
+	t.Cleanup(srv.Close)
+	headers := map[string]string{"x-api-key": "secret"}
+	s := NewHTTPSessionWithHeaders(srv.URL, testTimeout, headers)
+
+	headers["x-api-key"] = "changed"
+
+	if _, err := s.GetBytes(t.Context(), "/path"); err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+	if value := got.Get("x-api-key"); value != "secret" {
+		t.Errorf("want the original header, got %q", value)
+	}
+}

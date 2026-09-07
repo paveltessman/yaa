@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -25,10 +26,15 @@ var ErrHTTPFailed = errors.New("http request failed")
 
 type HTTPSession struct {
 	baseURL string
+	headers map[string]string
 	client  *http.Client
 }
 
 func NewHTTPSession(baseURL string, timeout time.Duration) *HTTPSession {
+	return NewHTTPSessionWithHeaders(baseURL, timeout, nil)
+}
+
+func NewHTTPSessionWithHeaders(baseURL string, timeout time.Duration, headers map[string]string) *HTTPSession {
 	baseURL = prepareBaseURL(baseURL)
 	if timeout <= 0 {
 		panic("timeout must be positive")
@@ -36,6 +42,7 @@ func NewHTTPSession(baseURL string, timeout time.Duration) *HTTPSession {
 	client := &http.Client{Timeout: timeout}
 	s := &HTTPSession{
 		baseURL: baseURL,
+		headers: maps.Clone(headers),
 		client:  client,
 	}
 	return s
@@ -72,6 +79,9 @@ func (s *HTTPSession) newRequest(ctx context.Context, method, path string, conte
 	req, err := http.NewRequestWithContext(ctx, method, u, reader)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrHTTPFailed, err)
+	}
+	for name, value := range s.headers {
+		req.Header.Set(name, value)
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", string(contentType))
