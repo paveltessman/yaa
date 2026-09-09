@@ -39,7 +39,7 @@ func okResponse(text string) string {
 
 func testParams() llm.CompletionParams {
 	return llm.CompletionParams{
-		Model:        Opus5,
+		Model:        llm.Opus5,
 		SystemPrompt: "you are a bot",
 		Input: []llm.Message{
 			{Role: llm.User, Date: time.Unix(1700000000, 0), Text: "hello"},
