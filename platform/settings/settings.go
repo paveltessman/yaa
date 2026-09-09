@@ -3,16 +3,20 @@ package settings
 import (
 	"net/url"
 	"os"
+	"strings"
 )
 
 const (
 	defaultApiAddr     = "127.0.0.1:8080"
 	defaultDatabaseURL = "postgres://yaa:yaa@localhost:5433/yaa?sslmode=disable"
+	defaultOllamaHost  = "http://localhost:11434"
 )
 
 type Settings struct {
 	TgToken         string
 	AnthropicApiKey string
+	OllamaHost      string
+	OllamaModels    []string
 	PublicHost      string
 	ApiAddr         string
 	DatabaseURL     string
@@ -26,6 +30,22 @@ func DatabaseURL() string {
 	return url
 }
 
+// ollamaModels reads the local models as a comma separated list. An empty
+// list leaves the ollama backend out.
+func ollamaModels() []string {
+	raw := strings.Split(os.Getenv("OLLAMA_MODELS"), ",")
+	models := make([]string, 0, len(raw))
+
+	for _, name := range raw {
+		name = strings.TrimSpace(name)
+		if len(name) == 0 {
+			continue
+		}
+		models = append(models, name)
+	}
+	return models
+}
+
 func NewSettings() Settings {
 	TgToken := os.Getenv("TG_TOKEN")
 
@@ -36,6 +56,11 @@ func NewSettings() Settings {
 	AnthropicApiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if len(AnthropicApiKey) == 0 {
 		panic("ANTHROPIC_API_KEY is not set")
+	}
+
+	OllamaHost := os.Getenv("OLLAMA_HOST")
+	if len(OllamaHost) == 0 {
+		OllamaHost = defaultOllamaHost
 	}
 
 	ApiAddr := os.Getenv("API_ADDR")
@@ -51,6 +76,8 @@ func NewSettings() Settings {
 	settings := Settings{
 		TgToken:         TgToken,
 		AnthropicApiKey: AnthropicApiKey,
+		OllamaHost:      OllamaHost,
+		OllamaModels:    ollamaModels(),
 		PublicHost:      PublicHost,
 		ApiAddr:         ApiAddr,
 		DatabaseURL:     DatabaseURL(),
