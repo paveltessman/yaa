@@ -59,3 +59,25 @@ func TestOllamaHost(t *testing.T) {
 		})
 	}
 }
+
+func TestGeminiApiKey(t *testing.T) {
+	cases := map[string]struct {
+		raw  string
+		want string
+	}{
+		"unset":     {"", ""},
+		"plain key": {"AIza-123", "AIza-123"},
+	}
+	for name, key := range cases {
+		t.Run(name, func(t *testing.T) {
+			setRequired(t)
+			t.Setenv("GEMINI_API_KEY", key.raw)
+
+			got := NewSettings().GeminiApiKey
+
+			if got != key.want {
+				t.Errorf("want=%q, got=%q", key.want, got)
+			}
+		})
+	}
+}

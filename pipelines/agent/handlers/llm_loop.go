@@ -11,7 +11,7 @@ import (
 
 var ErrLlmLoop = errors.New("unable to generate reply")
 
-const llmLoopModel = llm.Sonnet5
+const llmLoopModel = llm.Gemini35FlashLite
 
 const systemPrompt = `You are yaa, a personal assistant.
 You talk to the user in a telegram chat.
