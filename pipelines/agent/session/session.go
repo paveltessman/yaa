@@ -5,15 +5,18 @@ import (
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
 
+var _ shared.Session = (*Session)(nil)
+
 type Session struct {
-	shared.BaseSession
+	*shared.BaseSession
 	Thread []llm.Message
 	Reply  string
 }
 
 func NewSession(thread []llm.Message) *Session {
 	s := Session{
-		Thread: thread,
+		BaseSession: shared.NewSession(),
+		Thread:      thread,
 	}
 	return &s
 }
