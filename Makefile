@@ -72,7 +72,7 @@ psql: ## Open a psql shell on the dev database
 
 .env:
 	@cp .env.example .env
-	@echo ">> wrote .env from .env.example — fill in TG_TOKEN, PUBLIC_HTTP_HOST and ANTHROPIC_API_KEY"
+	@echo ">> wrote .env from .env.example — fill in TG_TOKEN, PUBLIC_HTTP_HOST, ANTHROPIC_API_KEY and GEMINI_API_KEY"
 
 .PHONY: up
 up: .env ## Run the app in docker

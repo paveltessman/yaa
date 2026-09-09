@@ -19,16 +19,12 @@ import (
 
 func newBackends(s *settings.Settings) map[ports.Model]llm.LLMBackend {
 	anthropicBackend := anthropic.NewClient(anthropic.NewSession(s.AnthropicApiKey))
+	geminiBackend := gemini.NewClient(gemini.NewSession(s.GeminiApiKey))
 	backends := map[ports.Model]llm.LLMBackend{
-		ports.Opus5:   anthropicBackend,
-		ports.Sonnet5: anthropicBackend,
-		ports.Haiku45: anthropicBackend,
-	}
-
-	if len(s.GeminiApiKey) > 0 {
-		geminiBackend := gemini.NewClient(gemini.NewSession(s.GeminiApiKey))
-		backends[ports.Gemini35FlashLite] = geminiBackend
-		log.Println("Gemini backend ready")
+		ports.Opus5:             anthropicBackend,
+		ports.Sonnet5:           anthropicBackend,
+		ports.Haiku45:           anthropicBackend,
+		ports.Gemini35FlashLite: geminiBackend,
 	}
 
 	if len(s.OllamaModels) == 0 {

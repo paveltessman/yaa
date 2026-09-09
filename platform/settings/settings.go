@@ -60,6 +60,9 @@ func NewSettings() Settings {
 	}
 
 	GeminiApiKey := os.Getenv("GEMINI_API_KEY")
+	if len(GeminiApiKey) == 0 {
+		panic("GEMINI_API_KEY is not set")
+	}
 
 	OllamaHost := os.Getenv("OLLAMA_HOST")
 	if len(OllamaHost) == 0 {
