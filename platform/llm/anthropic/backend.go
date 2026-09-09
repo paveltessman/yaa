@@ -13,12 +13,6 @@ import (
 )
 
 const (
-	Opus5   llm.Model = "claude-opus-5"
-	Sonnet5 llm.Model = "claude-sonnet-5"
-	Haiku45 llm.Model = "claude-haiku-4-5"
-)
-
-const (
 	apiURL     = "https://api.anthropic.com"
 	apiVersion = "2023-06-01"
 

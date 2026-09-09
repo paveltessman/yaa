@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/paveltessman/yaa/pipelines/agent"
 	pipelines "github.com/paveltessman/yaa/pipelines/shared"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
@@ -23,7 +24,8 @@ const idleTimeout = 60 * time.Second
 func NewRouter(deps Deps) http.Handler {
 	mux := http.NewServeMux()
 
-	chain := updates.NewChain(deps.tgClient, deps.dbRepo, pipelines.Run)
+	agentChain := agent.NewChain(deps.llmService)
+	chain := updates.NewChain(deps.tgClient, deps.dbRepo, pipelines.Run, agentChain)
 	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram(pipelines.Run, chain))
 	return mux
 }

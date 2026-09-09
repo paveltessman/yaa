@@ -12,8 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
 	"github.com/paveltessman/yaa/platform/settings"
+	llmtestkit "github.com/paveltessman/yaa/platform/testkit/llm"
 	"github.com/paveltessman/yaa/platform/testkit/telegram"
 )
 
@@ -29,9 +31,10 @@ func defaultDeps() Deps {
 		ApiAddr:    "127.0.0.1:8080",
 	}
 	deps := Deps{
-		settings: &s,
-		tgClient: &telegram.FakeClient{},
-		dbRepo:   &telegram.FakeDBRepo{},
+		settings:   &s,
+		tgClient:   &telegram.FakeClient{},
+		dbRepo:     &telegram.FakeDBRepo{},
+		llmService: &llmtestkit.FakeLLMService{Response: map[string]string{"text": "hi yourself"}},
 	}
 	return deps
 
@@ -282,9 +285,29 @@ func TestIgnoreServerClosed(t *testing.T) {
 }
 
 func TestNewRouterRunsTheChain(t *testing.T) {
-	repo := telegram.FakeDBRepo{}
+	fromUser := ports.Message{
+		ID:       10,
+		ChatID:   40,
+		ThreadID: 20,
+		UserID:   30,
+		Type:     ports.FromUser,
+		Date:     time.Unix(1700000000, 0),
+		Text:     "hello",
+	}
+	toUser := ports.Message{
+		ID:       11,
+		ChatID:   40,
+		ThreadID: 20,
+		UserID:   50,
+		Type:     ports.ToUser,
+		Date:     time.Unix(1700000001, 0),
+		Text:     "hi yourself",
+	}
+	repo := telegram.FakeDBRepo{Thread: []*ports.Message{&fromUser}}
+	client := telegram.FakeClient{SentMessage: &toUser}
 	deps := defaultDeps()
 	deps.dbRepo = &repo
+	deps.tgClient = &client
 	body := `{"update_id":1,"message":{"message_id":10,"message_thread_id":20,
 	  "from":{"id":30},"chat":{"id":40},"text":"hello","date":1700000000}}`
 
@@ -296,11 +319,17 @@ func TestNewRouterRunsTheChain(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("want=%d, got=%d", http.StatusOK, rec.Code)
 	}
-	if len(repo.Messages) != 1 {
-		t.Fatalf("want 1 stored message, got %d", len(repo.Messages))
+	if len(repo.Messages) != 2 {
+		t.Fatalf("want 2 stored messages, got %d", len(repo.Messages))
 	}
 	if got := repo.Messages[0]; got.ID != 10 || got.ChatID != 40 || got.Text != "hello" {
 		t.Errorf("want the message from the update, got %+v", got)
+	}
+	if len(client.SendMessageCalls) != 1 {
+		t.Fatalf("want 1 sent message, got %d", len(client.SendMessageCalls))
+	}
+	if got := client.SendMessageCalls[0]; got.ChatID != 40 || got.Text != "hi yourself" {
+		t.Errorf("want the reply of the agent, got %+v", got)
 	}
 }
 

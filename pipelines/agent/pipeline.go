@@ -6,15 +6,18 @@ import (
 	"github.com/paveltessman/yaa/pipelines/agent/handlers"
 	"github.com/paveltessman/yaa/pipelines/agent/session"
 	"github.com/paveltessman/yaa/pipelines/shared"
+	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
 
 func handleError(ctx context.Context, session *session.Session, err error) error {
 	return err
 }
 
-func NewChain() shared.Chain[*session.Session] {
+func NewChain(service llm.LLMService) shared.Chain[*session.Session] {
+	llmLoop := handlers.NewLlmLoop(service)
+
 	chain := []shared.Handler[*session.Session]{
-		shared.HandlerFunc[*session.Session](handlers.LlmLoop),
+		llmLoop,
 	}
 	return shared.NewChain(chain, handleError)
 }
