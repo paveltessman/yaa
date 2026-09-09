@@ -24,7 +24,7 @@ const idleTimeout = 60 * time.Second
 func NewRouter(deps Deps) http.Handler {
 	mux := http.NewServeMux()
 
-	agentChain := agent.NewChain()
+	agentChain := agent.NewChain(deps.llmService)
 	chain := updates.NewChain(deps.tgClient, deps.dbRepo, pipelines.Run, agentChain)
 	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram(pipelines.Run, chain))
 	return mux
