@@ -11,6 +11,7 @@ import (
 	"github.com/paveltessman/yaa/platform/db/repos/tgupdates"
 	"github.com/paveltessman/yaa/platform/llm"
 	"github.com/paveltessman/yaa/platform/llm/anthropic"
+	"github.com/paveltessman/yaa/platform/llm/gemini"
 	"github.com/paveltessman/yaa/platform/llm/ollama"
 	"github.com/paveltessman/yaa/platform/settings"
 	"github.com/paveltessman/yaa/platform/telegram"
@@ -22,6 +23,12 @@ func newBackends(s *settings.Settings) map[ports.Model]llm.LLMBackend {
 		ports.Opus5:   anthropicBackend,
 		ports.Sonnet5: anthropicBackend,
 		ports.Haiku45: anthropicBackend,
+	}
+
+	if len(s.GeminiApiKey) > 0 {
+		geminiBackend := gemini.NewClient(gemini.NewSession(s.GeminiApiKey))
+		backends[ports.Gemini35FlashLite] = geminiBackend
+		log.Println("Gemini backend ready")
 	}
 
 	if len(s.OllamaModels) == 0 {

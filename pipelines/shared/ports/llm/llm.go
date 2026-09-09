@@ -13,6 +13,8 @@ const (
 	Opus5   Model = "claude-opus-5"
 	Sonnet5 Model = "claude-sonnet-5"
 	Haiku45 Model = "claude-haiku-4-5"
+
+	Gemini35FlashLite Model = "gemini-3.5-flash-lite"
 )
 
 var ErrCompletionFailed = errors.New("completion failed")

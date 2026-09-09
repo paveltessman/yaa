@@ -15,6 +15,7 @@ const (
 type Settings struct {
 	TgToken         string
 	AnthropicApiKey string
+	GeminiApiKey    string
 	OllamaHost      string
 	OllamaModels    []string
 	PublicHost      string
@@ -58,6 +59,8 @@ func NewSettings() Settings {
 		panic("ANTHROPIC_API_KEY is not set")
 	}
 
+	GeminiApiKey := os.Getenv("GEMINI_API_KEY")
+
 	OllamaHost := os.Getenv("OLLAMA_HOST")
 	if len(OllamaHost) == 0 {
 		OllamaHost = defaultOllamaHost
@@ -76,6 +79,7 @@ func NewSettings() Settings {
 	settings := Settings{
 		TgToken:         TgToken,
 		AnthropicApiKey: AnthropicApiKey,
+		GeminiApiKey:    GeminiApiKey,
 		OllamaHost:      OllamaHost,
 		OllamaModels:    ollamaModels(),
 		PublicHost:      PublicHost,
