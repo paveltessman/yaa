@@ -9,6 +9,7 @@ func setRequired(t *testing.T) {
 	t.Helper()
 	t.Setenv("TG_TOKEN", "test-token")
 	t.Setenv("ANTHROPIC_API_KEY", "test-key")
+	t.Setenv("GEMINI_API_KEY", "test-key")
 	t.Setenv("PUBLIC_HTTP_HOST", "https://example.org")
 }
 
@@ -61,23 +62,27 @@ func TestOllamaHost(t *testing.T) {
 }
 
 func TestGeminiApiKey(t *testing.T) {
-	cases := map[string]struct {
-		raw  string
-		want string
-	}{
-		"unset":     {"", ""},
-		"plain key": {"AIza-123", "AIza-123"},
-	}
-	for name, key := range cases {
-		t.Run(name, func(t *testing.T) {
-			setRequired(t)
-			t.Setenv("GEMINI_API_KEY", key.raw)
+	t.Run("plain key", func(t *testing.T) {
+		setRequired(t)
+		t.Setenv("GEMINI_API_KEY", "AIza-123")
 
-			got := NewSettings().GeminiApiKey
+		got := NewSettings().GeminiApiKey
 
-			if got != key.want {
-				t.Errorf("want=%q, got=%q", key.want, got)
+		if got != "AIza-123" {
+			t.Errorf("want=%q, got=%q", "AIza-123", got)
+		}
+	})
+
+	t.Run("unset", func(t *testing.T) {
+		setRequired(t)
+		t.Setenv("GEMINI_API_KEY", "")
+
+		defer func() {
+			if recover() == nil {
+				t.Error("want a panic, got none")
 			}
-		})
-	}
+		}()
+
+		NewSettings()
+	})
 }
