@@ -11,21 +11,17 @@ import (
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
 )
 
-type AgentRunner shared.Runner[*agent.Session]
-
 type RunAgent struct {
-	agentRunner AgentRunner
-	agentChain  shared.Chain[*agent.Session]
+	pipeline shared.Pipeline[*agent.Session]
 }
 
-func NewRunAgent(agentRunner AgentRunner, agentChain shared.Chain[*agent.Session]) RunAgent {
-	if agentRunner == nil {
+func NewRunAgent(agentPipeline shared.Pipeline[*agent.Session]) RunAgent {
+	if agentPipeline == nil {
 		panic("agent runner object is nil")
 	}
 
 	h := RunAgent{
-		agentRunner: agentRunner,
-		agentChain:  agentChain,
+		pipeline: agentPipeline,
 	}
 	return h
 }
@@ -52,7 +48,7 @@ func toThread(messages []*ports.Message) []llm.Message {
 func (h RunAgent) Handle(ctx context.Context, session *session.Session) error {
 	s := agent.NewSession(toThread(session.Thread))
 
-	err := h.agentRunner(ctx, s, h.agentChain)
+	err := h.pipeline(ctx, s)
 	if err != nil {
 		return err
 	}

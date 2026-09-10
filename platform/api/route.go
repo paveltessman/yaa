@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/paveltessman/yaa/pipelines/agent"
-	pipelines "github.com/paveltessman/yaa/pipelines/shared"
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
+	testkit "github.com/paveltessman/yaa/platform/testkit/history"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -21,12 +22,18 @@ const readTimeout = 15 * time.Second
 const writeTimeout = 15 * time.Second
 const idleTimeout = 60 * time.Second
 
+func fakeHistoryService() history.HistoryService {
+	return &testkit.FakeHistoryService{}
+}
+
 func NewRouter(deps Deps) http.Handler {
 	mux := http.NewServeMux()
 
-	agentChain := agent.NewChain(deps.llmService)
-	chain := updates.NewChain(deps.tgClient, deps.dbRepo, pipelines.Run, agentChain)
-	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram(pipelines.Run, chain))
+	agentPipeline := agent.NewPipeline(deps.llmService, fakeHistoryService())
+	tgUpdatesPipeline := updates.NewPipeline(deps.tgClient, deps.dbRepo, agentPipeline, fakeHistoryService())
+
+	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram(tgUpdatesPipeline))
+
 	return mux
 }
 
