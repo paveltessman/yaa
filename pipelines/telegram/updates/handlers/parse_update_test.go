@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"uuid"
 
 	"github.com/paveltessman/yaa/pipelines/shared"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/models"
@@ -13,7 +14,7 @@ import (
 
 func newSession(raw string) *session.Session {
 	s := session.Session{
-		BaseSession: shared.NewSession(),
+		BaseSession: shared.NewSession(uuid.Nil()),
 		RawUpdate:   []byte(raw),
 	}
 	return &s

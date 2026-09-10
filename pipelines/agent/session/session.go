@@ -1,6 +1,8 @@
 package session
 
 import (
+	"uuid"
+
 	"github.com/paveltessman/yaa/pipelines/shared"
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
@@ -13,9 +15,9 @@ type Session struct {
 	Reply  string
 }
 
-func NewSession(thread []llm.Message) *Session {
+func NewSession(thread []llm.Message, parentID uuid.UUID) *Session {
 	s := Session{
-		BaseSession: shared.NewSession(),
+		BaseSession: shared.NewSession(parentID),
 		Thread:      thread,
 	}
 	return &s

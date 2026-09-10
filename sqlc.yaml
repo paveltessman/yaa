@@ -4,6 +4,7 @@ sql:
     schema: migrations/sql
     queries:
       - platform/db/repos/tgupdates/tgupdates.sql
+      - platform/db/repos/history/history.sql
     gen:
       go:
         package: sqlc

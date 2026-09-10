@@ -45,7 +45,7 @@ func testRunner(t *testing.T) *background.Runner {
 
 func handler(t *testing.T) http.Handler {
 	t.Helper()
-	pipeline := shared.NewPipeline(fakeHistoryService(), shared.Chain[*session.Session]{})
+	pipeline := shared.NewPipeline("test", fakeHistoryService(), shared.Chain[*session.Session]{})
 	h := Telegram(pipeline, testRunner(t))
 	return h
 }

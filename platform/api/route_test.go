@@ -11,11 +11,14 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"uuid"
 
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
 	"github.com/paveltessman/yaa/platform/background"
 	"github.com/paveltessman/yaa/platform/settings"
+	historytestkit "github.com/paveltessman/yaa/platform/testkit/history"
 	llmtestkit "github.com/paveltessman/yaa/platform/testkit/llm"
 	"github.com/paveltessman/yaa/platform/testkit/telegram"
 )
@@ -32,10 +35,11 @@ func defaultDeps() Deps {
 		ApiAddr:    "127.0.0.1:8080",
 	}
 	deps := Deps{
-		settings:   &s,
-		tgClient:   &telegram.FakeClient{},
-		dbRepo:     &telegram.FakeDBRepo{},
-		llmService: &llmtestkit.FakeLLMService{Response: map[string]string{"text": "hi yourself"}},
+		settings:       &s,
+		tgClient:       &telegram.FakeClient{},
+		dbRepo:         &telegram.FakeDBRepo{},
+		llmService:     &llmtestkit.FakeLLMService{Response: map[string]string{"text": "hi yourself"}},
+		historyService: &historytestkit.FakeHistoryService{},
 	}
 	return deps
 
@@ -362,6 +366,51 @@ func TestNewRouterRunsTheChain(t *testing.T) {
 	}
 	if got := client.SendMessageCalls[0]; got.ChatID != 40 || got.Text != "hi yourself" {
 		t.Errorf("want the reply of the agent, got %+v", got)
+	}
+}
+
+func recordOf(t *testing.T, saver *historytestkit.FakeHistoryService, pipeline string) *history.Record {
+	t.Helper()
+
+	for _, record := range saver.Records {
+		if record.Pipeline == pipeline {
+			return record
+		}
+	}
+	t.Fatalf("want a record of the %s pipeline, got none", pipeline)
+	return nil
+}
+
+func TestNewRouterStoresTheHistoryOfEveryPass(t *testing.T) {
+	saver := historytestkit.FakeHistoryService{}
+	deps := defaultDeps()
+	deps.dbRepo = &telegram.FakeDBRepo{Thread: []*ports.Message{{Type: ports.FromUser, Text: "hello"}}}
+	deps.tgClient = &telegram.FakeClient{SentMessage: &ports.Message{ID: 11, ChatID: 40}}
+	deps.historyService = &saver
+	body := `{"update_id":1,"message":{"message_id":10,"message_thread_id":20,
+	  "from":{"id":30},"chat":{"id":40},"text":"hello","date":1700000000}}`
+
+	req := httptest.NewRequest(http.MethodPost, callbacks.TgWebhookPath, strings.NewReader(body))
+	runner := background.NewRunner(1, 5*time.Second)
+	NewRouter(deps, runner).ServeHTTP(httptest.NewRecorder(), req)
+	waitRunner(t, runner)
+
+	if saver.Calls != 2 {
+		t.Fatalf("want 2 saves, got %d", saver.Calls)
+	}
+	update := recordOf(t, &saver, "telegram.updates")
+	agent := recordOf(t, &saver, "agent")
+	if update.ParentID != uuid.Nil() {
+		t.Errorf("the update pass: want no parent, got %s", update.ParentID)
+	}
+	if agent.ParentID != update.SessionID {
+		t.Errorf("the agent pass: parent id: want=%s, got=%s", update.SessionID, agent.ParentID)
+	}
+	if agent.SessionID == update.SessionID {
+		t.Error("want a session of its own for the agent pass, got the session of the update pass")
+	}
+	if update.Date.IsZero() || agent.Date.IsZero() {
+		t.Error("want a date on both passes, got the zero time")
 	}
 }
 

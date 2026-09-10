@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/paveltessman/yaa/pipelines/agent/session"
 	"github.com/paveltessman/yaa/pipelines/shared"
@@ -26,6 +27,10 @@ func newThread() []llm.Message {
 	return []llm.Message{older, answer}
 }
 
+func newSession(thread []llm.Message) *session.Session {
+	return session.NewSession(thread, uuid.Nil())
+}
+
 func newAnswer(text string) map[string]string {
 	return map[string]string{"text": text}
 }
@@ -37,7 +42,7 @@ func newService(text string, err error) *testkit.FakeLLMService {
 func TestLlmLoopPutsTheReplyOnTheSession(t *testing.T) {
 	service := newService("the answer", nil)
 	h := NewLlmLoop(service)
-	s := session.NewSession(newThread())
+	s := newSession(newThread())
 
 	if err := h.Handle(context.Background(), s); err != nil {
 		t.Fatalf("want no error, got %v", err)
@@ -54,7 +59,7 @@ func TestLlmLoopSendsTheThreadAsInput(t *testing.T) {
 	service := newService("the answer", nil)
 	h := NewLlmLoop(service)
 	thread := newThread()
-	s := session.NewSession(thread)
+	s := newSession(thread)
 
 	if err := h.Handle(context.Background(), s); err != nil {
 		t.Fatalf("want no error, got %v", err)
@@ -74,7 +79,7 @@ func TestLlmLoopSendsTheThreadAsInput(t *testing.T) {
 func TestLlmLoopSendsTheModelAndTheSystemPrompt(t *testing.T) {
 	service := newService("the answer", nil)
 	h := NewLlmLoop(service)
-	s := session.NewSession(newThread())
+	s := newSession(newThread())
 
 	if err := h.Handle(context.Background(), s); err != nil {
 		t.Fatalf("want no error, got %v", err)
@@ -91,7 +96,7 @@ func TestLlmLoopPassesTheContext(t *testing.T) {
 	type key struct{}
 	service := newService("the answer", nil)
 	h := NewLlmLoop(service)
-	s := session.NewSession(newThread())
+	s := newSession(newThread())
 	ctx := context.WithValue(context.Background(), key{}, "marker")
 
 	if err := h.Handle(ctx, s); err != nil {
@@ -105,7 +110,7 @@ func TestLlmLoopPassesTheContext(t *testing.T) {
 func TestLlmLoopWithAnEmptyThread(t *testing.T) {
 	service := newService("the answer", nil)
 	h := NewLlmLoop(service)
-	s := session.NewSession(nil)
+	s := newSession(nil)
 
 	err := h.Handle(context.Background(), s)
 
@@ -120,7 +125,7 @@ func TestLlmLoopWithAnEmptyThread(t *testing.T) {
 func TestLlmLoopWithAnEmptyAnswer(t *testing.T) {
 	service := newService("", nil)
 	h := NewLlmLoop(service)
-	s := session.NewSession(newThread())
+	s := newSession(newThread())
 
 	err := h.Handle(context.Background(), s)
 
@@ -135,7 +140,7 @@ func TestLlmLoopWithAnEmptyAnswer(t *testing.T) {
 func TestLlmLoopReturnsTheServiceError(t *testing.T) {
 	serviceErr := errors.New("the backend is down")
 	h := NewLlmLoop(newService("the answer", serviceErr))
-	s := session.NewSession(newThread())
+	s := newSession(newThread())
 
 	err := h.Handle(context.Background(), s)
 
@@ -152,7 +157,7 @@ func TestLlmLoopReturnsTheServiceError(t *testing.T) {
 
 func TestLlmLoopSatisfiesHandler(t *testing.T) {
 	var h shared.Handler[*session.Session] = NewLlmLoop(newService("the answer", nil))
-	s := session.NewSession(newThread())
+	s := newSession(newThread())
 
 	if err := h.Handle(context.Background(), s); err != nil {
 		t.Fatalf("want no error, got %v", err)

@@ -94,6 +94,27 @@ func TestRunAgentPassesAnEmptyThread(t *testing.T) {
 	}
 }
 
+func TestRunAgentNamesTheCallerAsTheParent(t *testing.T) {
+	var calls []agentCall
+	h := NewRunAgent(fakeAgentPipeline("hi yourself", nil, &calls))
+	s := newSessionWithMessage(newMessage())
+
+	if err := h.Handle(context.Background(), s); err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("want 1 call, got %d", len(calls))
+	}
+
+	got := calls[0].session
+	if got.ParentID() != s.ID() {
+		t.Errorf("parent id: want=%s, got=%s", s.ID(), got.ParentID())
+	}
+	if got.ID() == s.ID() {
+		t.Error("want a session of its own for the agent, got the session of the caller")
+	}
+}
+
 func TestRunAgentPassesContext(t *testing.T) {
 	type key struct{}
 	var calls []agentCall

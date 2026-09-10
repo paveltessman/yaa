@@ -8,6 +8,7 @@ import (
 	ports "github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 	"github.com/paveltessman/yaa/platform/api"
 	"github.com/paveltessman/yaa/platform/db"
+	"github.com/paveltessman/yaa/platform/db/repos/history"
 	"github.com/paveltessman/yaa/platform/db/repos/tgupdates"
 	"github.com/paveltessman/yaa/platform/llm"
 	"github.com/paveltessman/yaa/platform/llm/anthropic"
@@ -60,7 +61,7 @@ func run(ctx context.Context, _ []string) error {
 	llmService := llm.NewLLMService(newBackends(&s))
 	log.Println("LLM service ready")
 
-	deps := api.NewDeps(&s, tgClient, tgupdates.New(pool), llmService)
+	deps := api.NewDeps(&s, tgClient, tgupdates.New(pool), llmService, history.New(pool))
 
 	if err := api.Serve(ctx, deps); err != nil {
 		return err
