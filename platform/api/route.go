@@ -12,6 +12,7 @@ import (
 	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
+	"github.com/paveltessman/yaa/platform/background"
 	testkit "github.com/paveltessman/yaa/platform/testkit/history"
 )
 
@@ -22,26 +23,37 @@ const readTimeout = 15 * time.Second
 const writeTimeout = 15 * time.Second
 const idleTimeout = 60 * time.Second
 
+const maxBackgroundTasks = 64
+const backgroundTaskTimeout = 5 * time.Minute
+const backgroundWaitTimeout = 30 * time.Second
+
 func fakeHistoryService() history.HistoryService {
 	return &testkit.FakeHistoryService{}
 }
 
-func NewRouter(deps Deps) http.Handler {
+func NewRouter(deps Deps, runner *background.Runner) http.Handler {
 	mux := http.NewServeMux()
 
 	agentPipeline := agent.NewPipeline(deps.llmService, fakeHistoryService())
 	tgUpdatesPipeline := updates.NewPipeline(deps.tgClient, deps.dbRepo, agentPipeline, fakeHistoryService())
 
-	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram(tgUpdatesPipeline))
+	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram(tgUpdatesPipeline, runner))
 
 	return mux
 }
 
 func Serve(ctx context.Context, deps Deps) error {
-	return serve(ctx, deps, NewRouter(deps), tearUp, tearDown)
+	runner := background.NewRunner(maxBackgroundTasks, backgroundTaskTimeout)
+	return serve(ctx, deps, NewRouter(deps, runner), runner, tearUp, tearDown)
 }
 
-func serve(ctx context.Context, deps Deps, handler http.Handler, tearUp, tearDown lifespan) (err error) {
+func serve(
+	ctx context.Context,
+	deps Deps,
+	handler http.Handler,
+	runner *background.Runner,
+	tearUp, tearDown lifespan,
+) (err error) {
 	if err := tearUp(ctx, deps); err != nil {
 		return err
 	}
@@ -56,6 +68,8 @@ func serve(ctx context.Context, deps Deps, handler http.Handler, tearUp, tearDow
 			}
 		}
 	}()
+
+	defer waitBackground(ctx, runner)
 
 	listener, err := net.Listen("tcp", deps.settings.ApiAddr)
 	if err != nil {
@@ -90,6 +104,15 @@ func serve(ctx context.Context, deps Deps, handler http.Handler, tearUp, tearDow
 		return errors.Join(shutdownErr, ignoreServerClosed(<-errs))
 	}
 	return ignoreServerClosed(<-errs)
+}
+
+func waitBackground(ctx context.Context, runner *background.Runner) {
+	waitCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), backgroundWaitTimeout)
+	defer cancel()
+
+	if err := runner.Wait(waitCtx); err != nil {
+		log.Printf("background tasks did not finish: %v", err)
+	}
 }
 
 func ignoreServerClosed(err error) error {

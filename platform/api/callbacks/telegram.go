@@ -9,6 +9,7 @@ import (
 	pipelines "github.com/paveltessman/yaa/pipelines/shared"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
+	"github.com/paveltessman/yaa/platform/background"
 )
 
 const maxBodyBytes = 1 << 20
@@ -17,6 +18,7 @@ const TgWebhookPath = "/v1/callbacks/telegram"
 
 func Telegram(
 	pipeline pipelines.Pipeline[*session.Session],
+	runner *background.Runner,
 ) http.Handler {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -35,9 +37,13 @@ func Telegram(
 		w.WriteHeader(http.StatusOK)
 
 		session := updates.NewSession(body)
-		err = pipeline(context.TODO(), session)
-		if err != nil {
-			log.Println(err)
+		started := runner.Go(r.Context(), func(ctx context.Context) {
+			if err := pipeline(ctx, session); err != nil {
+				log.Println(err)
+			}
+		})
+		if !started {
+			log.Println("telegram update dropped: the runner is stopped")
 		}
 	})
 	return handler

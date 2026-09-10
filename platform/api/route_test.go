@@ -14,6 +14,7 @@ import (
 
 	"github.com/paveltessman/yaa/pipelines/telegram/ports"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
+	"github.com/paveltessman/yaa/platform/background"
 	"github.com/paveltessman/yaa/platform/settings"
 	llmtestkit "github.com/paveltessman/yaa/platform/testkit/llm"
 	"github.com/paveltessman/yaa/platform/testkit/telegram"
@@ -64,6 +65,23 @@ func liveCheckHook(ran *bool, ctxErr *error) lifespan {
 	}
 }
 
+func testRunner(t *testing.T) *background.Runner {
+	t.Helper()
+	runner := background.NewRunner(4, 5*time.Second)
+	t.Cleanup(func() { waitRunner(t, runner) })
+	return runner
+}
+
+func waitRunner(t *testing.T, runner *background.Runner) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := runner.Wait(ctx); err != nil {
+		t.Errorf("want the background tasks to finish, got %v", err)
+	}
+}
+
 func freeAddr(t *testing.T) string {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -87,7 +105,13 @@ func busyAddr(t *testing.T) string {
 	return listener.Addr().String()
 }
 
-func startServe(t *testing.T, handler http.Handler, deps Deps, tearUp, tearDown lifespan) (string, context.CancelFunc, <-chan error) {
+func startServe(
+	t *testing.T,
+	handler http.Handler,
+	deps Deps,
+	runner *background.Runner,
+	tearUp, tearDown lifespan,
+) (string, context.CancelFunc, <-chan error) {
 	t.Helper()
 	addr := freeAddr(t)
 	deps = withAddr(deps, addr)
@@ -96,7 +120,7 @@ func startServe(t *testing.T, handler http.Handler, deps Deps, tearUp, tearDown 
 
 	errs := make(chan error, 1)
 	go func() {
-		errs <- serve(ctx, deps, handler, tearUp, tearDown)
+		errs <- serve(ctx, deps, handler, runner, tearUp, tearDown)
 	}()
 	return addr, cancel, errs
 }
@@ -129,7 +153,8 @@ func waitResult(t *testing.T, errs <-chan error) error {
 func TestServeCleanShutdownReturnsNil(t *testing.T) {
 	tearDownCalls := 0
 	deps := defaultDeps()
-	addr, cancel, errs := startServe(t, NewRouter(deps), deps, noopHook, countingHook(&tearDownCalls, nil))
+	runner := testRunner(t)
+	addr, cancel, errs := startServe(t, NewRouter(deps, runner), deps, runner, noopHook, countingHook(&tearDownCalls, nil))
 	waitForServer(t, addr)
 
 	cancel()
@@ -144,7 +169,8 @@ func TestServeCleanShutdownReturnsNil(t *testing.T) {
 
 func TestServeRoutesRequests(t *testing.T) {
 	deps := defaultDeps()
-	addr, cancel, errs := startServe(t, NewRouter(deps), deps, noopHook, noopHook)
+	runner := testRunner(t)
+	addr, cancel, errs := startServe(t, NewRouter(deps, runner), deps, runner, noopHook, noopHook)
 	waitForServer(t, addr)
 
 	resp, err := http.Post("http://"+addr+"/v1/callbacks/telegram", "application/json", strings.NewReader(`{"update_id":1}`))
@@ -174,7 +200,7 @@ func TestServeWaitsForInFlightRequest(t *testing.T) {
 		_, _ = w.Write([]byte("done"))
 	})
 
-	addr, cancel, errs := startServe(t, handler, defaultDeps(), noopHook, noopHook)
+	addr, cancel, errs := startServe(t, handler, defaultDeps(), testRunner(t), noopHook, noopHook)
 	waitForServer(t, addr)
 
 	bodies := make(chan string, 1)
@@ -216,7 +242,8 @@ func TestServeListenErrorSurfaces(t *testing.T) {
 	tearDownCalls := 0
 
 	deps := withAddr(defaultDeps(), busyAddr(t))
-	err := serve(context.Background(), deps, NewRouter(deps), noopHook, countingHook(&tearDownCalls, nil))
+	runner := testRunner(t)
+	err := serve(context.Background(), deps, NewRouter(deps, runner), runner, noopHook, countingHook(&tearDownCalls, nil))
 
 	if err == nil {
 		t.Error("want a listen error on a busy address, got nil")
@@ -230,7 +257,8 @@ func TestServeTearUpErrorStopsTheServer(t *testing.T) {
 	tearDownCalls := 0
 
 	deps := withAddr(defaultDeps(), freeAddr(t))
-	err := serve(context.Background(), deps, NewRouter(deps), failingHook(errTearUp), countingHook(&tearDownCalls, nil))
+	runner := testRunner(t)
+	err := serve(context.Background(), deps, NewRouter(deps, runner), runner, failingHook(errTearUp), countingHook(&tearDownCalls, nil))
 
 	if !errors.Is(err, errTearUp) {
 		t.Errorf("want errTearUp, got %v", err)
@@ -242,7 +270,8 @@ func TestServeTearUpErrorStopsTheServer(t *testing.T) {
 
 func TestServeTearDownErrorSurfacesAfterACleanRun(t *testing.T) {
 	deps := defaultDeps()
-	addr, cancel, errs := startServe(t, NewRouter(deps), deps, noopHook, failingHook(errTearDown))
+	runner := testRunner(t)
+	addr, cancel, errs := startServe(t, NewRouter(deps, runner), deps, runner, noopHook, failingHook(errTearDown))
 	waitForServer(t, addr)
 
 	cancel()
@@ -254,7 +283,8 @@ func TestServeTearDownErrorSurfacesAfterACleanRun(t *testing.T) {
 
 func TestServeTearDownErrorKeepsTheFirstError(t *testing.T) {
 	deps := withAddr(defaultDeps(), busyAddr(t))
-	err := serve(context.Background(), deps, NewRouter(deps), noopHook, failingHook(errTearDown))
+	runner := testRunner(t)
+	err := serve(context.Background(), deps, NewRouter(deps, runner), runner, noopHook, failingHook(errTearDown))
 
 	if err == nil {
 		t.Fatal("want the listen error, got nil")
@@ -314,7 +344,9 @@ func TestNewRouterRunsTheChain(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, callbacks.TgWebhookPath, strings.NewReader(body))
 	rec := httptest.NewRecorder()
 
-	NewRouter(deps).ServeHTTP(rec, req)
+	runner := background.NewRunner(1, 5*time.Second)
+	NewRouter(deps, runner).ServeHTTP(rec, req)
+	waitRunner(t, runner)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("want=%d, got=%d", http.StatusOK, rec.Code)
@@ -349,7 +381,7 @@ func TestNewRouterRoutes(t *testing.T) {
 			req := httptest.NewRequest(key.method, key.path, strings.NewReader("{}"))
 			rec := httptest.NewRecorder()
 
-			NewRouter(defaultDeps()).ServeHTTP(rec, req)
+			NewRouter(defaultDeps(), testRunner(t)).ServeHTTP(rec, req)
 
 			if rec.Code != key.want {
 				t.Errorf("want=%d, got=%d", key.want, rec.Code)
@@ -362,7 +394,8 @@ func TestServeTearsDownWithALiveContext(t *testing.T) {
 	var ran bool
 	var ctxErr error
 	deps := defaultDeps()
-	addr, cancel, errs := startServe(t, NewRouter(deps), deps, noopHook, liveCheckHook(&ran, &ctxErr))
+	runner := testRunner(t)
+	addr, cancel, errs := startServe(t, NewRouter(deps, runner), deps, runner, noopHook, liveCheckHook(&ran, &ctxErr))
 	waitForServer(t, addr)
 
 	cancel()
