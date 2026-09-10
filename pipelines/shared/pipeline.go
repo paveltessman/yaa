@@ -27,13 +27,26 @@ func NewChain[S Session](chain []Handler[S], errorHandler ErrorHandler[S]) Chain
 
 type Pipeline[S Session] func(context.Context, S) error
 
-func NewPipeline[S Session](history history.Saver, chain Chain[S]) Pipeline[S] {
+func NewPipeline[S Session](name string, saver history.Saver, chain Chain[S]) Pipeline[S] {
+	switch {
+	case len(name) == 0:
+		panic("pipeline name is empty")
+	case saver == nil:
+		panic("history saver object is nil")
+	}
+
 	f := func(ctx context.Context, session S) error {
 
 		err := run(ctx, session, chain)
 
-		historyErr := history.Save(ctx, session.ID(), session.History())
-		if historyErr != nil {
+		record := history.Record{
+			SessionID: session.ID(),
+			ParentID:  session.ParentID(),
+			Pipeline:  name,
+			Date:      session.Date(),
+			Entries:   session.History(),
+		}
+		if historyErr := saver.Save(ctx, &record); historyErr != nil {
 			log.Println(historyErr)
 		}
 		return err

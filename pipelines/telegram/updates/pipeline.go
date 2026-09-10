@@ -2,6 +2,7 @@ package updates
 
 import (
 	"context"
+	"uuid"
 
 	agent "github.com/paveltessman/yaa/pipelines/agent/session"
 	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
@@ -12,9 +13,12 @@ import (
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
 )
 
+// pipelineName names the passes of this pipeline in the history.
+const pipelineName = "telegram.updates"
+
 func NewSession(update []byte) *session.Session {
 	session := session.Session{
-		BaseSession: shared.NewSession(),
+		BaseSession: shared.NewSession(uuid.Nil()),
 		RawUpdate:   update,
 	}
 	return &session
@@ -55,6 +59,6 @@ func NewPipeline(
 	history history.Saver,
 ) shared.Pipeline[*session.Session] {
 	chain := NewChain(tg, repo, agentPipeline)
-	pipeline := shared.NewPipeline(history, chain)
+	pipeline := shared.NewPipeline(pipelineName, history, chain)
 	return pipeline
 }

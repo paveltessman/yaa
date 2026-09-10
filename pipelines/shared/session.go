@@ -11,18 +11,24 @@ var _ Session = (*BaseSession)(nil)
 
 type Session interface {
 	ID() uuid.UUID
+	ParentID() uuid.UUID
 	Date() time.Time
 	History() []history.Entry
 }
 
 type BaseSession struct {
-	id      uuid.UUID
-	date    time.Time
-	history []history.Entry
+	id       uuid.UUID
+	parentID uuid.UUID
+	date     time.Time
+	history  []history.Entry
 }
 
 func (s *BaseSession) ID() uuid.UUID {
 	return s.id
+}
+
+func (s *BaseSession) ParentID() uuid.UUID {
+	return s.parentID
 }
 
 func (s *BaseSession) Date() time.Time {
@@ -39,10 +45,11 @@ func (s *BaseSession) History() []history.Entry {
 	return out
 }
 
-func NewSession() *BaseSession {
+func NewSession(parentID uuid.UUID) *BaseSession {
 	session := BaseSession{
-		id:   uuid.NewV7(),
-		date: time.Now(),
+		id:       uuid.NewV7(),
+		parentID: parentID,
+		date:     time.Now(),
 	}
 	return &session
 }

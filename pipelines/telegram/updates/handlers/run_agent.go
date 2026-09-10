@@ -46,7 +46,7 @@ func toThread(messages []*ports.Message) []llm.Message {
 }
 
 func (h RunAgent) Handle(ctx context.Context, session *session.Session) error {
-	s := agent.NewSession(toThread(session.Thread))
+	s := agent.NewSession(toThread(session.Thread), session.ID())
 
 	err := h.pipeline(ctx, s)
 	if err != nil {

@@ -10,6 +10,8 @@ import (
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
 
+const pipelineName = "agent"
+
 func handleError(ctx context.Context, session *session.Session, err error) error {
 	return err
 }
@@ -25,6 +27,6 @@ func NewChain(service llm.LLMService) shared.Chain[*session.Session] {
 
 func NewPipeline(llm llm.LLMService, history history.Saver) shared.Pipeline[*session.Session] {
 	chain := NewChain(llm)
-	pipeline := shared.NewPipeline(history, chain)
+	pipeline := shared.NewPipeline(pipelineName, history, chain)
 	return pipeline
 }
