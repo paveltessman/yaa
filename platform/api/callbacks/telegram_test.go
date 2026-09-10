@@ -11,8 +11,14 @@ import (
 	"testing"
 
 	"github.com/paveltessman/yaa/pipelines/shared"
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates/session"
+	testkit "github.com/paveltessman/yaa/platform/testkit/history"
 )
+
+func fakeHistoryService() history.HistoryService {
+	return &testkit.FakeHistoryService{}
+}
 
 func quietLog(t *testing.T) {
 	t.Helper()
@@ -21,7 +27,8 @@ func quietLog(t *testing.T) {
 }
 
 func handler() http.Handler {
-	h := Telegram(shared.Run, shared.Chain[*session.Session]{})
+	pipeline := shared.NewPipeline(fakeHistoryService(), shared.Chain[*session.Session]{})
+	h := Telegram(pipeline)
 	return h
 }
 

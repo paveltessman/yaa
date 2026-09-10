@@ -6,6 +6,7 @@ import (
 	"github.com/paveltessman/yaa/pipelines/agent/handlers"
 	"github.com/paveltessman/yaa/pipelines/agent/session"
 	"github.com/paveltessman/yaa/pipelines/shared"
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
 
@@ -20,4 +21,10 @@ func NewChain(service llm.LLMService) shared.Chain[*session.Session] {
 		llmLoop,
 	}
 	return shared.NewChain(chain, handleError)
+}
+
+func NewPipeline(llm llm.LLMService, history history.Saver) shared.Pipeline[*session.Session] {
+	chain := NewChain(llm)
+	pipeline := shared.NewPipeline(history, chain)
+	return pipeline
 }

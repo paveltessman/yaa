@@ -16,8 +16,7 @@ const maxBodyBytes = 1 << 20
 const TgWebhookPath = "/v1/callbacks/telegram"
 
 func Telegram(
-	runner pipelines.Runner[*session.Session],
-	chain pipelines.Chain[*session.Session],
+	pipeline pipelines.Pipeline[*session.Session],
 ) http.Handler {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -36,7 +35,7 @@ func Telegram(
 		w.WriteHeader(http.StatusOK)
 
 		session := updates.NewSession(body)
-		err = runner(context.TODO(), session, chain)
+		err = pipeline(context.TODO(), session)
 		if err != nil {
 			log.Println(err)
 		}

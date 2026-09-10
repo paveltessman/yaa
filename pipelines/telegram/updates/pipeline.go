@@ -4,6 +4,7 @@ import (
 	"context"
 
 	agent "github.com/paveltessman/yaa/pipelines/agent/session"
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 
 	"github.com/paveltessman/yaa/pipelines/shared"
 	"github.com/paveltessman/yaa/pipelines/telegram/ports"
@@ -25,16 +26,15 @@ func errorHandler(ctx context.Context, session *session.Session, err error) erro
 }
 
 func NewChain(
-	client ports.Sender,
+	tg ports.Sender,
 	repo ports.DBRepo,
-	agentRunner handlers.AgentRunner,
-	agentChain shared.Chain[*agent.Session],
+	agentPipeline shared.Pipeline[*agent.Session],
 ) shared.Chain[*session.Session] {
 	parseUpdate := shared.HandlerFunc[*session.Session](handlers.ParseUpdate)
 	storeMessage := handlers.NewStoreMessage(repo)
 	loadThread := handlers.NewLoadThread(repo)
-	runAgent := handlers.NewRunAgent(agentRunner, agentChain)
-	sendReply := handlers.NewSendReply(client)
+	runAgent := handlers.NewRunAgent(agentPipeline)
+	sendReply := handlers.NewSendReply(tg)
 	storeReply := handlers.NewStoreReply(repo)
 
 	chain := []shared.Handler[*session.Session]{
@@ -46,4 +46,15 @@ func NewChain(
 		storeReply,
 	}
 	return shared.NewChain(chain, errorHandler)
+}
+
+func NewPipeline(
+	tg ports.Sender,
+	repo ports.DBRepo,
+	agentPipeline shared.Pipeline[*agent.Session],
+	history history.Saver,
+) shared.Pipeline[*session.Session] {
+	chain := NewChain(tg, repo, agentPipeline)
+	pipeline := shared.NewPipeline(history, chain)
+	return pipeline
 }
