@@ -3,9 +3,11 @@ package history
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	ports "github.com/paveltessman/yaa/pipelines/shared/ports/history"
@@ -61,4 +63,66 @@ func toParent(parentID uuid.UUID) *uuid.UUID {
 		return nil
 	}
 	return &parentID
+}
+
+func (r *Repo) List(ctx context.Context, limit int32) ([]*ports.Record, error) {
+	rows, err := r.queries.ListSessionHistory(ctx, limit)
+	if err != nil {
+		return nil, fmt.Errorf("history: can't list the sessions: %w", err)
+	}
+
+	records := make([]*ports.Record, 0, len(rows))
+	for _, row := range rows {
+		record, err := toRecord(row)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	return records, nil
+}
+
+func (r *Repo) Get(ctx context.Context, sessionID uuid.UUID) (*ports.Record, error) {
+	row, err := r.queries.GetSessionHistory(ctx, sessionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("history: session %s: %w", sessionID, ports.ErrNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("history: can't read session %s: %w", sessionID, err)
+	}
+	return toRecord(row)
+}
+
+func toRecord(row sqlc.SessionHistory) (*ports.Record, error) {
+	entries, err := fromEntries(row.Entries)
+	if err != nil {
+		return nil, fmt.Errorf("history: can't read session %s: %w", row.SessionID, err)
+	}
+
+	record := ports.Record{
+		SessionID: row.SessionID,
+		ParentID:  fromParent(row.ParentSessionID),
+		Pipeline:  row.Pipeline,
+		Date:      row.Date,
+		Entries:   entries,
+	}
+	return &record, nil
+}
+
+func fromEntries(raw []byte) ([]ports.Entry, error) {
+	entries := make([]ports.Entry, 0)
+	if len(raw) == 0 {
+		return entries, nil
+	}
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+func fromParent(parentID *uuid.UUID) uuid.UUID {
+	if parentID == nil {
+		return uuid.Nil()
+	}
+	return *parentID
 }

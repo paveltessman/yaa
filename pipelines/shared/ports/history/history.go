@@ -2,9 +2,12 @@ package history
 
 import (
 	"context"
+	"errors"
 	"time"
 	"uuid"
 )
+
+var ErrNotFound = errors.New("session history not found")
 
 type Kind string
 
@@ -38,6 +41,14 @@ type Saver interface {
 	Save(ctx context.Context, record *Record) error
 }
 
+type Loader interface {
+	// List gives the newest records first, at most limit of them.
+	List(ctx context.Context, limit int32) ([]*Record, error)
+	// Get gives one record. It returns ErrNotFound for an unknown session.
+	Get(ctx context.Context, sessionID uuid.UUID) (*Record, error)
+}
+
 type HistoryService interface {
 	Saver
+	Loader
 }
