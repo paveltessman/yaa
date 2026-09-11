@@ -9,6 +9,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 	"github.com/paveltessman/yaa/platform/network"
 )
@@ -118,14 +119,17 @@ func NewClient(session network.HTTPRequester) *Client {
 	return c
 }
 
-func (c *Client) Completion(ctx context.Context, params llm.CompletionParams, response any) error {
+func (c *Client) Completion(ctx context.Context, params llm.CompletionParams, response any) ([]history.Detail, error) {
+	details := make([]history.Detail, 0)
 	schema, err := c.schemaFor(response)
 	if err != nil {
-		return err
+		return details, err
 	}
 	if params.Model == "" {
-		return fmt.Errorf("%w: the model is empty", llm.ErrCompletionFailed)
+		return details, fmt.Errorf("%w: the model is empty", llm.ErrCompletionFailed)
 	}
+
+	details = append(details, history.Detail{Title: "model", Body: string(params.Model)})
 
 	request := completionRequest{
 		Contents: toContents(params.Input),
@@ -141,28 +145,34 @@ func (c *Client) Completion(ctx context.Context, params llm.CompletionParams, re
 
 	body, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
+		return details, fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
 	}
+
+	details = append(details, history.Detail{Title: "backend_request", Body: string(body)})
 
 	path := fmt.Sprintf(completionPath, params.Model)
 	raw, err := c.http.PostBytes(ctx, path, network.ApplicationJson, body)
+	details = append(details, history.Detail{Title: "raw_response", Body: string(raw)})
 	if err != nil {
-		return fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
+		return details, fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
 	}
 
 	resp := completionResponse{}
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		return fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
+		return details, fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
 	}
 
 	text, err := resp.text()
 	if err != nil {
-		return err
+		return details, err
 	}
+
+	details = append(details, history.Detail{Title: "response_text", Body: text})
+
 	if err := json.Unmarshal([]byte(text), response); err != nil {
-		return fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
+		return details, fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
 	}
-	return nil
+	return details, nil
 }
 
 func toContents(input []llm.Message) []content {

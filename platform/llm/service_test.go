@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
 
@@ -21,11 +22,11 @@ type fakeBackend struct {
 	err    error
 }
 
-func (f *fakeBackend) Completion(ctx context.Context, params llm.CompletionParams, _ any) error {
+func (f *fakeBackend) Completion(ctx context.Context, params llm.CompletionParams, _ any) ([]history.Detail, error) {
 	f.calls++
 	f.gotCtx = ctx
 	f.got = params
-	return f.err
+	return []history.Detail{}, f.err
 }
 
 func TestNewLLMService(t *testing.T) {
@@ -64,7 +65,7 @@ func TestNewLLMServiceCopiesTheMap(t *testing.T) {
 	s := NewLLMService(backends)
 	delete(backends, knownModel)
 
-	if err := s.Completion(t.Context(), llm.CompletionParams{Model: knownModel}, nil); err != nil {
+	if _, err := s.Completion(t.Context(), llm.CompletionParams{Model: knownModel}, nil); err != nil {
 		t.Fatalf("want no error, got %v", err)
 	}
 	if backend.calls != 1 {
@@ -78,7 +79,7 @@ func TestCompletionPicksTheBackend(t *testing.T) {
 	s := NewLLMService(map[llm.Model]LLMBackend{knownModel: backend, "other": other})
 	params := llm.CompletionParams{Model: knownModel, SystemPrompt: "be short"}
 
-	if err := s.Completion(t.Context(), params, nil); err != nil {
+	if _, err := s.Completion(t.Context(), params, nil); err != nil {
 		t.Fatalf("want no error, got %v", err)
 	}
 
@@ -100,7 +101,7 @@ func TestCompletionWithoutABackend(t *testing.T) {
 	backend := &fakeBackend{}
 	s := NewLLMService(map[llm.Model]LLMBackend{knownModel: backend})
 
-	err := s.Completion(t.Context(), llm.CompletionParams{Model: unknownModel}, nil)
+	_, err := s.Completion(t.Context(), llm.CompletionParams{Model: unknownModel}, nil)
 
 	if !errors.Is(err, llm.ErrCompletionFailed) {
 		t.Fatalf("want ErrCompletionFailed, got %v", err)
@@ -114,7 +115,7 @@ func TestCompletionReturnsTheBackendError(t *testing.T) {
 	wantErr := errors.New("backend is down")
 	s := NewLLMService(map[llm.Model]LLMBackend{knownModel: &fakeBackend{err: wantErr}})
 
-	err := s.Completion(t.Context(), llm.CompletionParams{Model: knownModel}, nil)
+	_, err := s.Completion(t.Context(), llm.CompletionParams{Model: knownModel}, nil)
 
 	if !errors.Is(err, wantErr) {
 		t.Errorf("want the backend error, got %v", err)

@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/paveltessman/yaa/pipelines/agent/session"
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
 
@@ -47,7 +49,8 @@ func (h LlmLoop) Handle(ctx context.Context, session *session.Session) error {
 	}
 
 	answer := reply{}
-	if err := h.service.Completion(ctx, params, &answer); err != nil {
+	details, err := h.service.Completion(ctx, params, &answer)
+	if err != nil {
 		return fmt.Errorf("%w: %w", ErrLlmLoop, err)
 	}
 	if answer.Text == "" {
@@ -55,5 +58,17 @@ func (h LlmLoop) Handle(ctx context.Context, session *session.Session) error {
 	}
 
 	session.Reply = answer.Text
+	session.AppendHistory(historyEntry(details))
 	return nil
+}
+
+func historyEntry(details []history.Detail) history.Entry {
+	entry := history.Entry{
+		At:          time.Now(),
+		Kind:        history.LLM,
+		Title:       "llm step",
+		Description: "",
+		Details:     details,
+	}
+	return entry
 }

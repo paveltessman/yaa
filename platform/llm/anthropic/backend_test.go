@@ -77,7 +77,7 @@ func TestNewSession(t *testing.T) {
 func TestCompletionRequest(t *testing.T) {
 	f, c := newTestClient(t, okResponse(`{"text":"hi","score":1}`), nil)
 
-	if err := c.Completion(t.Context(), testParams(), &reply{}); err != nil {
+	if _, err := c.Completion(t.Context(), testParams(), &reply{}); err != nil {
 		t.Fatalf("want no error, got %v", err)
 	}
 
@@ -107,7 +107,7 @@ func TestCompletionDropsTheSystemPromptWhenEmpty(t *testing.T) {
 	params := testParams()
 	params.SystemPrompt = ""
 
-	if err := c.Completion(t.Context(), params, &reply{}); err != nil {
+	if _, err := c.Completion(t.Context(), params, &reply{}); err != nil {
 		t.Fatalf("want no error, got %v", err)
 	}
 
@@ -138,7 +138,7 @@ func TestCompletionResult(t *testing.T) {
 			_, c := newTestClient(t, key.resp, nil)
 
 			got := reply{}
-			if err := c.Completion(t.Context(), testParams(), &got); err != nil {
+			if _, err := c.Completion(t.Context(), testParams(), &got); err != nil {
 				t.Fatalf("want no error, got %v", err)
 			}
 			if got != key.want {
@@ -165,7 +165,7 @@ func TestCompletionRejectsABadResponseModel(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			f, c := newTestClient(t, okResponse(`{}`), nil)
 
-			err := c.Completion(t.Context(), testParams(), key.model)
+			_, err := c.Completion(t.Context(), testParams(), key.model)
 
 			if !errors.Is(err, llm.ErrCompletionFailed) {
 				t.Fatalf("want ErrCompletionFailed, got %v", err)
@@ -180,7 +180,7 @@ func TestCompletionRejectsABadResponseModel(t *testing.T) {
 func TestCompletionTransportError(t *testing.T) {
 	_, c := newTestClient(t, "", errTransport)
 
-	err := c.Completion(t.Context(), testParams(), &reply{})
+	_, err := c.Completion(t.Context(), testParams(), &reply{})
 
 	if !errors.Is(err, errTransport) {
 		t.Errorf("want errTransport, got %v", err)
@@ -202,7 +202,7 @@ func TestCompletionBadJSON(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, c := newTestClient(t, resp, nil)
 
-			err := c.Completion(t.Context(), testParams(), &reply{})
+			_, err := c.Completion(t.Context(), testParams(), &reply{})
 
 			if !errors.Is(err, llm.ErrCompletionFailed) {
 				t.Fatalf("want ErrCompletionFailed, got %v", err)
@@ -223,7 +223,7 @@ func TestCompletionUnusableAnswer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, c := newTestClient(t, resp, nil)
 
-			err := c.Completion(t.Context(), testParams(), &reply{})
+			_, err := c.Completion(t.Context(), testParams(), &reply{})
 
 			if !errors.Is(err, llm.ErrCompletionFailed) {
 				t.Fatalf("want ErrCompletionFailed, got %v", err)
@@ -237,7 +237,7 @@ func TestCompletionPassesTheContext(t *testing.T) {
 	f, c := newTestClient(t, okResponse(`{}`), nil)
 	ctx := context.WithValue(t.Context(), key{}, "marker")
 
-	if err := c.Completion(ctx, testParams(), &reply{}); err != nil {
+	if _, err := c.Completion(ctx, testParams(), &reply{}); err != nil {
 		t.Fatalf("want no error, got %v", err)
 	}
 	if f.GotCtx == nil {

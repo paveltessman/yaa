@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
 
@@ -18,20 +19,21 @@ type FakeLLMService struct {
 	GotParams llm.CompletionParams
 }
 
-func (f *FakeLLMService) Completion(ctx context.Context, params llm.CompletionParams, response any) error {
+func (f *FakeLLMService) Completion(ctx context.Context, params llm.CompletionParams, response any) ([]history.Detail, error) {
+	details := make([]history.Detail, 0)
 	f.Calls++
 	f.GotCtx = ctx
 	f.GotParams = params
 	if f.Err != nil {
-		return f.Err
+		return details, f.Err
 	}
 	if f.Response == nil || response == nil {
-		return nil
+		return details, nil
 	}
 
 	body, err := json.Marshal(f.Response)
 	if err != nil {
-		return err
+		return details, err
 	}
-	return json.Unmarshal(body, response)
+	return details, json.Unmarshal(body, response)
 }

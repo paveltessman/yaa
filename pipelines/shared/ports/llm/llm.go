@@ -5,6 +5,8 @@ import (
 	"errors"
 
 	"time"
+
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 )
 
 type Model string
@@ -39,5 +41,5 @@ type CompletionParams struct {
 }
 
 type LLMService interface {
-	Completion(ctx context.Context, params CompletionParams, response any) error
+	Completion(ctx context.Context, params CompletionParams, response any) ([]history.Detail, error)
 }

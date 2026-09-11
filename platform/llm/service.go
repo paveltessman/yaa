@@ -2,16 +2,19 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"maps"
 
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 )
 
 var _ llm.LLMService = (*LLMService)(nil)
 
 type LLMBackend interface {
-	Completion(ctx context.Context, params llm.CompletionParams, response any) error
+	Completion(ctx context.Context, params llm.CompletionParams, response any) ([]history.Detail, error)
 }
 
 type LLMService struct {
@@ -32,10 +35,27 @@ func NewLLMService(backends map[llm.Model]LLMBackend) *LLMService {
 	return s
 }
 
-func (s *LLMService) Completion(ctx context.Context, params llm.CompletionParams, response any) error {
+func (s *LLMService) Completion(ctx context.Context, params llm.CompletionParams, response any) ([]history.Detail, error) {
+	details := saveDetails(params)
+
 	backend, ok := s.backends[params.Model]
 	if !ok {
-		return fmt.Errorf("%w: no backend for model: %q", llm.ErrCompletionFailed, params.Model)
+		return details, fmt.Errorf("%w: no backend for model: %q", llm.ErrCompletionFailed, params.Model)
 	}
-	return backend.Completion(ctx, params, response)
+	backendDetails, err := backend.Completion(ctx, params, response)
+	details = append(details, backendDetails...)
+	return details, err
+}
+
+func saveDetails(params llm.CompletionParams) []history.Detail {
+	details := make([]history.Detail, 0)
+
+	inputBody, err := json.Marshal(params.Input)
+	if err != nil {
+		log.Printf("error while serializing llm imput: %v", err)
+		return details
+	}
+
+	details = append(details, history.Detail{Title: "llm_input", Body: string(inputBody)})
+	return details
 }
