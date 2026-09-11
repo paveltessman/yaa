@@ -2,6 +2,7 @@ package history
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 	"uuid"
@@ -271,5 +272,232 @@ func TestSaveSatisfiesTheHistoryService(t *testing.T) {
 	}
 	if got := count(t, pool); got != 1 {
 		t.Errorf("want 1 row, got %d", got)
+	}
+}
+
+func save(t *testing.T, repo *Repo, records ...*Record) {
+	t.Helper()
+
+	for _, record := range records {
+		if err := repo.Save(t.Context(), record); err != nil {
+			t.Fatalf("storing session %s: %v", record.SessionID, err)
+		}
+	}
+}
+
+func TestListGivesTheNewestFirst(t *testing.T) {
+	pool := dbtest.NewPool(t)
+	repo := New(pool)
+	older := newRecord()
+	older.Date = time.Unix(1700000000, 0)
+	newer := newRecord()
+	newer.Date = time.Unix(1700009999, 0)
+	save(t, repo, older, newer)
+
+	got, err := repo.List(t.Context(), 10)
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("want 2 records, got %d", len(got))
+	}
+	if got[0].SessionID != newer.SessionID {
+		t.Errorf("the first record: want=%s, got=%s", newer.SessionID, got[0].SessionID)
+	}
+	if got[1].SessionID != older.SessionID {
+		t.Errorf("the second record: want=%s, got=%s", older.SessionID, got[1].SessionID)
+	}
+}
+
+func TestListObeysTheLimit(t *testing.T) {
+	pool := dbtest.NewPool(t)
+	repo := New(pool)
+	for i := range 3 {
+		record := newRecord()
+		record.Date = time.Unix(1700000000+int64(i), 0)
+		save(t, repo, record)
+	}
+
+	got, err := repo.List(t.Context(), 2)
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	if len(got) != 2 {
+		t.Errorf("want 2 records, got %d", len(got))
+	}
+}
+
+func TestListGivesAnEmptyResultOnAnEmptyTable(t *testing.T) {
+	pool := dbtest.NewPool(t)
+	repo := New(pool)
+
+	got, err := repo.List(t.Context(), 10)
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	if len(got) != 0 {
+		t.Errorf("want no records, got %d", len(got))
+	}
+}
+
+func TestGetReadsEveryColumnBack(t *testing.T) {
+	pool := dbtest.NewPool(t)
+	repo := New(pool)
+	record := newRecord()
+	save(t, repo, record)
+
+	got, err := repo.Get(t.Context(), record.SessionID)
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	if got.SessionID != record.SessionID {
+		t.Errorf("session id: want=%s, got=%s", record.SessionID, got.SessionID)
+	}
+	if got.ParentID != record.ParentID {
+		t.Errorf("parent id: want=%s, got=%s", record.ParentID, got.ParentID)
+	}
+	if got.Pipeline != record.Pipeline {
+		t.Errorf("pipeline: want=%q, got=%q", record.Pipeline, got.Pipeline)
+	}
+	if !got.Date.Equal(record.Date) {
+		t.Errorf("date: want=%s, got=%s", record.Date, got.Date)
+	}
+}
+
+func TestGetReadsEveryFieldOfAnEntry(t *testing.T) {
+	pool := dbtest.NewPool(t)
+	repo := New(pool)
+	record := newRecord()
+	save(t, repo, record)
+
+	got, err := repo.Get(t.Context(), record.SessionID)
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	if len(got.Entries) != 1 {
+		t.Fatalf("want 1 entry, got %d", len(got.Entries))
+	}
+	first, want := got.Entries[0], record.Entries[0]
+	if !first.At.Equal(want.At) {
+		t.Errorf("at: want=%s, got=%s", want.At, first.At)
+	}
+	if first.Kind != want.Kind {
+		t.Errorf("kind: want=%s, got=%s", want.Kind, first.Kind)
+	}
+	if first.Title != want.Title {
+		t.Errorf("title: want=%q, got=%q", want.Title, first.Title)
+	}
+	if first.Description != want.Description {
+		t.Errorf("description: want=%q, got=%q", want.Description, first.Description)
+	}
+	if len(first.Details) != len(want.Details) {
+		t.Fatalf("details: want %d, got %d", len(want.Details), len(first.Details))
+	}
+	if first.Details[0] != want.Details[0] {
+		t.Errorf("details: want=%+v, got=%+v", want.Details[0], first.Details[0])
+	}
+}
+
+func TestGetKeepsTheOrderOfTheEntries(t *testing.T) {
+	pool := dbtest.NewPool(t)
+	repo := New(pool)
+	record := newRecord()
+	record.Entries = []Entry{newEntry("first"), newEntry("second"), newEntry("third")}
+	save(t, repo, record)
+
+	got, err := repo.Get(t.Context(), record.SessionID)
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	want := []string{"first", "second", "third"}
+	if len(got.Entries) != len(want) {
+		t.Fatalf("want %d entries, got %d", len(want), len(got.Entries))
+	}
+	for i := range want {
+		if got.Entries[i].Title != want[i] {
+			t.Errorf("entry %d: want=%q, got=%q", i, want[i], got.Entries[i].Title)
+		}
+	}
+}
+
+func TestGetReadsAPassWithoutAParentAsTheNilID(t *testing.T) {
+	pool := dbtest.NewPool(t)
+	repo := New(pool)
+	record := newRecord()
+	record.ParentID = uuid.Nil()
+	save(t, repo, record)
+
+	got, err := repo.Get(t.Context(), record.SessionID)
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	if got.ParentID != uuid.Nil() {
+		t.Errorf("parent id: want the nil id, got %s", got.ParentID)
+	}
+}
+
+func TestGetReadsAPassWithoutEntriesAsAnEmptyList(t *testing.T) {
+	pool := dbtest.NewPool(t)
+	repo := New(pool)
+	record := newRecord()
+	record.Entries = nil
+	save(t, repo, record)
+
+	got, err := repo.Get(t.Context(), record.SessionID)
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	if got.Entries == nil {
+		t.Fatal("want an empty list, got nil")
+	}
+	if len(got.Entries) != 0 {
+		t.Errorf("want an empty list, got %d entries", len(got.Entries))
+	}
+}
+
+func TestGetTellsAnUnknownSessionApart(t *testing.T) {
+	pool := dbtest.NewPool(t)
+	repo := New(pool)
+
+	got, err := repo.Get(t.Context(), uuid.NewV7())
+
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("want ErrNotFound, got %v", err)
+	}
+	if got != nil {
+		t.Errorf("want no record, got %+v", got)
+	}
+}
+
+func TestListAndGetSatisfyTheHistoryService(t *testing.T) {
+	pool := dbtest.NewPool(t)
+	var service HistoryService = New(pool)
+	record := newRecord()
+	if err := service.Save(t.Context(), record); err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	listed, err := service.List(t.Context(), 10)
+	if err != nil {
+		t.Fatalf("want no error from List, got %v", err)
+	}
+	if len(listed) != 1 {
+		t.Errorf("want 1 record, got %d", len(listed))
+	}
+
+	loaded, err := service.Get(t.Context(), record.SessionID)
+	if err != nil {
+		t.Fatalf("want no error from Get, got %v", err)
+	}
+	if loaded.SessionID != record.SessionID {
+		t.Errorf("session id: want=%s, got=%s", record.SessionID, loaded.SessionID)
 	}
 }

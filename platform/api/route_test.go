@@ -423,6 +423,9 @@ func TestNewRouterRoutes(t *testing.T) {
 		"telegram callback":     {http.MethodPost, "/v1/callbacks/telegram", http.StatusOK},
 		"telegram wrong method": {http.MethodGet, "/v1/callbacks/telegram", http.StatusMethodNotAllowed},
 		"unknown callback":      {http.MethodPost, "/v1/callbacks/unknown", http.StatusNotFound},
+		"history list":          {http.MethodGet, "/history/", http.StatusOK},
+		"history wrong method":  {http.MethodPost, "/history/", http.StatusMethodNotAllowed},
+		"history bad session":   {http.MethodGet, "/history/not-a-uuid", http.StatusBadRequest},
 		"root path":             {http.MethodGet, "/", http.StatusNotFound},
 	}
 	for name, key := range cases {

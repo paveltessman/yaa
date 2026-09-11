@@ -11,6 +11,7 @@ import (
 	"github.com/paveltessman/yaa/pipelines/agent"
 	"github.com/paveltessman/yaa/pipelines/telegram/updates"
 	"github.com/paveltessman/yaa/platform/api/callbacks"
+	"github.com/paveltessman/yaa/platform/api/pages"
 	"github.com/paveltessman/yaa/platform/background"
 )
 
@@ -32,6 +33,7 @@ func NewRouter(deps Deps, runner *background.Runner) http.Handler {
 	tgUpdatesPipeline := updates.NewPipeline(deps.tgClient, deps.dbRepo, agentPipeline, deps.historyService)
 
 	mux.Handle(callbacks.TgWebhookPath, callbacks.Telegram(tgUpdatesPipeline, runner))
+	mux.Handle(pages.HistoryPath, pages.History(deps.historyService))
 
 	return mux
 }

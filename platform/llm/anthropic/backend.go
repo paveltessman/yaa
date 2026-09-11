@@ -8,6 +8,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 
+	"github.com/paveltessman/yaa/pipelines/shared/ports/history"
 	"github.com/paveltessman/yaa/pipelines/shared/ports/llm"
 	"github.com/paveltessman/yaa/platform/network"
 )
@@ -93,11 +94,15 @@ func NewClient(session network.HTTPRequester) *Client {
 	return c
 }
 
-func (c *Client) Completion(ctx context.Context, params llm.CompletionParams, response any) error {
+func (c *Client) Completion(ctx context.Context, params llm.CompletionParams, response any) ([]history.Detail, error) {
+	details := make([]history.Detail, 0)
 	schema, err := c.schemaFor(response)
 	if err != nil {
-		return err
+		return details, err
 	}
+
+	details = append(details, history.Detail{Title: "model", Body: string(params.Model)})
+	details = append(details, history.Detail{Title: "system_prompt", Body: params.SystemPrompt})
 
 	request := completionRequest{
 		Model:     params.Model,
@@ -111,32 +116,36 @@ func (c *Client) Completion(ctx context.Context, params llm.CompletionParams, re
 
 	body, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
+		return details, fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
 	}
 
 	raw, err := c.http.PostBytes(ctx, messagesPath, network.ApplicationJson, body)
+	details = append(details, history.Detail{Title: "raw_response", Body: string(raw)})
 	if err != nil {
-		return fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
+		return details, fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
 	}
 
 	resp := completionResponse{}
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		return fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
+		return details, fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
 	}
 	// Any other stop reason means the model refused or ran out of room, and
 	// then the text does not match the schema.
 	if resp.StopReason != stopEndTurn {
-		return fmt.Errorf("%w: the model stopped with %q", llm.ErrCompletionFailed, resp.StopReason)
+		return details, fmt.Errorf("%w: the model stopped with %q", llm.ErrCompletionFailed, resp.StopReason)
 	}
 
 	text, err := resp.text()
 	if err != nil {
-		return err
+		return details, err
 	}
+
+	details = append(details, history.Detail{Title: "response_text", Body: text})
+
 	if err := json.Unmarshal([]byte(text), response); err != nil {
-		return fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
+		return details, fmt.Errorf("%w: %w", llm.ErrCompletionFailed, err)
 	}
-	return nil
+	return details, nil
 }
 
 func (c *Client) schemaFor(response any) (*jsonschema.Schema, error) {
