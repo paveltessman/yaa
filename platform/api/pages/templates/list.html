@@ -1,0 +1,19 @@
+{{define "content"}}
+<h1>sessions</h1>
+{{if .Sessions}}
+<table>
+<tr><th>date</th><th>pipeline</th><th>session</th><th>parent</th><th>entries</th></tr>
+{{range .Sessions}}
+<tr>
+<td>{{.Date}}</td>
+<td>{{.Pipeline}}</td>
+<td><a href="/history/{{.SessionID}}">{{.SessionID}}</a></td>
+<td>{{if .ParentID}}<a href="/history/{{.ParentID}}">{{.ParentID}}</a>{{else}}<span class="empty">none</span>{{end}}</td>
+<td>{{len .Entries}}</td>
+</tr>
+{{end}}
+</table>
+{{else}}
+<p class="empty">No session is stored yet.</p>
+{{end}}
+{{end}}

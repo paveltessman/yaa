@@ -1,0 +1,34 @@
+{{define "content"}}
+{{with .Session}}
+<h1>session {{.SessionID}}</h1>
+<p class="badges">
+<span class="badge">{{.Pipeline}}</span>
+<span class="badge">{{.Date}}</span>
+{{if .ParentID}}<a class="badge" href="/history/{{.ParentID}}">parent {{.ParentID}}</a>{{end}}
+</p>
+
+{{if .Entries}}
+{{range .Entries}}
+<details class="entry">
+<summary>
+<span class="entry-title">{{.Title}}</span>
+<span class="badge">{{.Kind}}</span>
+<span class="badge">{{.At}}</span>
+</summary>
+{{if .Description}}<p class="description">{{.Description}}</p>{{end}}
+{{range .Details}}
+<details class="detail">
+<summary>{{.Title}}</summary>
+<pre>{{.Body}}</pre>
+</details>
+{{else}}
+<p class="empty">This entry saved no detail.</p>
+{{end}}
+</details>
+{{end}}
+{{else}}
+<p class="empty">This session stored no entry.</p>
+{{end}}
+{{end}}
+<p><a href="/history/">back to the list</a></p>
+{{end}}
